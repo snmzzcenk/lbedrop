@@ -507,11 +507,11 @@ async function kullanicilarSayfasi(sayfa) {
 
 // ---------- Ayarlar: Drive bağlantısı (yalnız yönetici) ----------
 async function ayarlarSayfasi(sayfa) {
-  const ust = baslik("Ayarlar", "Modellerin yüklendiği Google Drive bağlantısı.");
+  const ust = baslik("Ayarlar", "Google Drive bağlantısı ve giriş kodu e-postası.");
   kabuk(sayfa, ust + '<p class="yardim">Yükleniyor…</p>');
   const icerik = () => document.getElementById("icerik");
-  let d;
-  try { d = await api("/drive/durum"); } catch (x) { if (simdikiSayfa().id === sayfa.id) icerik().innerHTML = ust + hataKutusu(x); return; }
+  let d, p;
+  try { [d, p] = await Promise.all([api("/drive/durum"), api("/posta/durum")]); } catch (x) { if (simdikiSayfa().id === sayfa.id) icerik().innerHTML = ust + hataKutusu(x); return; }
   if (simdikiSayfa().id !== sayfa.id) return;
   icerik().innerHTML = `${ust}<div id="hata"></div>
     <div class="kutu dar">
@@ -523,12 +523,30 @@ async function ayarlarSayfasi(sayfa) {
         <button type="button" class="btn" id="yenile">Yenile</button>
       </div>
       <p class="yardim">Yetki sunucuda şifreli durur. Sunucu yalnız kendi açtığı LBE_Drop klasörünü görür; Drive'daki başka dosyalara erişemez.</p>
+    </div>
+    <div class="kutu dar" style="margin-top:var(--s-5)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Giriş kodu e-postası</h2>${p.bagli ? rozet("onaylandi", "Bağlı", I.ok) : p.brevo ? rozet("onaylandi", "Brevo ile açık", I.ok) : rozet("bekliyor", "Bağlı değil", I.bekle)}</div>
+      <p class="yardim">${p.bagli ? "Giriş ekranında e-posta koduyla giriş açık. Kodlar bağlı Gmail hesabından gönderilir." : "Bir Gmail hesabı bağlanırsa giriş ekranında \"e-posta koduyla giriş\" açılır; Google hesabı olmayanlar da girebilir. Kodlar bağlanan hesabın adresinden gider."}</p>
+      <div class="dugmeler">
+        <button type="button" class="btn ${p.bagli ? "" : "btn-birincil"}" id="posta-bagla">${p.bagli ? "E-postayı yeniden bağla" : "Gmail'i bağla"}</button>
+        ${p.bagli ? '<button type="button" class="btn btn-red" id="posta-kes">Bağlantıyı kes</button>' : ""}
+      </div>
+      <p class="yardim">Yalnız e-posta gönderme izni istenir; sunucu posta kutusunu okuyamaz. Gönderilen kodlar o hesabın "Gönderilmiş" klasöründe görünür. Gmail günde yaklaşık 500 e-postaya izin verir; sunucu günde 250 kodla sınırlar.</p>
     </div>`;
   const hata = document.getElementById("hata");
   document.getElementById("yenile").onclick = () => ayarlarSayfasi(sayfa);
   document.getElementById("bagla").onclick = async () => {
     try { const v = await api("/drive/baglan"); window.open(v.url, "_blank", "noopener"); hata.innerHTML = bildirimHtml({ tur: "warn", yazi: "Açılan sekmede izin ver, sonra buraya dönüp Yenile'ye bas." }); }
     catch (x) { hata.innerHTML = hataKutusu(x); }
+  };
+  document.getElementById("posta-bagla").onclick = async () => {
+    try { const v = await api("/posta/baglan"); window.open(v.url, "_blank", "noopener"); hata.innerHTML = bildirimHtml({ tur: "warn", yazi: "Açılan sekmede e-posta gönderme iznini işaretleyip izin ver, sonra buraya dönüp Yenile'ye bas." }); }
+    catch (x) { hata.innerHTML = hataKutusu(x); }
+  };
+  const postaKes = document.getElementById("posta-kes");
+  if (postaKes) postaKes.onclick = async () => {
+    if (!(await sor("E-posta bağlantısını kes", "Giriş ekranından e-posta koduyla giriş kalkar; Google ile giriş çalışmaya devam eder.", "Bağlantıyı kes"))) return;
+    try { await api("/posta/baglanti", { yontem: "DELETE" }); ayarlarSayfasi(sayfa); } catch (x) { hata.innerHTML = hataKutusu(x); }
   };
   const kes = document.getElementById("kes");
   if (kes) kes.onclick = async () => {
