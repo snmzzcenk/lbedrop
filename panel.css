@@ -69,12 +69,21 @@ form{display:grid;gap:var(--s-4);margin:0}
 .yukleme:last-child{border-bottom:0;padding-bottom:0}
 .yukleme .ust{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .yukleme b{font:700 15px/1.25 var(--font);overflow-wrap:anywhere}
+.yukleme .dugmeler{margin-top:4px}
+.ret-form{margin-top:8px;gap:var(--s-2)}
+.bolum-baslik{font:700 16px/1.25 var(--font);margin:var(--s-5) 0 var(--s-2);display:flex;gap:8px;align-items:baseline}
+.bolum-baslik:first-child{margin-top:0}
+.dar-genis{max-width:720px}
+select.girdi.tam{width:100%;height:44px;font-size:15px}
 
 /* Giriş ve bekleme ekranları */
 .orta{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:var(--s-4)}
 .orta .kutu{width:100%;max-width:420px;gap:20px;padding:40px}
 .orta h1{font:700 26px/1.2 var(--font);letter-spacing:-.01em;margin:0}
 .orta .logo{height:48px;justify-self:start}
+.ya-da{display:flex;align-items:center;gap:12px;color:var(--muted);font:500 13px/1 var(--font)}
+.ya-da::before,.ya-da::after{content:"";flex:1;height:1px;background:var(--line)}
+input.kod-girdi{font:600 22px/1 var(--font);letter-spacing:.3em;text-align:center}
 
 /* Onay diyaloğu */
 dialog.kutu{width:440px;max-width:calc(100vw - 32px);color:var(--fg);border:1px solid var(--line-strong)}

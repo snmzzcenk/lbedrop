@@ -23,7 +23,7 @@ const b64u = (u) => btoa(String.fromCharCode(...new Uint8Array(u))).replace(/\+/
 const boyutYaz = (b) => (b / 1048576).toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " MB";
 const tarihYaz = (iso) => new Date(iso).toLocaleString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const basHarf = (ad) => String(ad || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0] || "").join("").toLocaleUpperCase("tr") || "?";
-const ROL_AD = { yukleyici: "Yükleyici", onaylayici: "Onaylayıcı", yonetici: "Yönetici" };
+const ROL_AD = { yukleyici: "Öğrenci", akademisyen: "Akademisyen", onaylayici: "YUVerse sorumlusu", yonetici: "Sistem yöneticisi" };
 
 const I = {
   ok: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.2l2.2 2.2 4.2-4.4" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -36,7 +36,8 @@ const I = {
   ayar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.200" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="17" r="2.200" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
 };
 const rozet = (sinif, yazi, simge) => `<span class="durum ${sinif}">${simge}${esc(yazi)}</span>`;
-const yuklemeRozeti = (d) => d === "onaylandi" ? rozet("onaylandi", "Onaylandı", I.ok) : d === "reddedildi" ? rozet("reddedildi", "Reddedildi", I.red) : rozet("bekliyor", "Onay bekliyor", I.bekle);
+// Yükleme aşaması: akademisyen ön onayı → YUVerse sorumlusu onayı → onaylandı / reddedildi.
+const yuklemeRozeti = (a) => a === "onaylandi" ? rozet("onaylandi", "Onaylandı", I.ok) : a === "reddedildi" ? rozet("reddedildi", "Reddedildi", I.red) : a === "akademisyen" ? rozet("bekliyor", "Akademisyen onayı bekliyor", I.bekle) : rozet("bekliyor", "YUVerse onayı bekliyor", I.bekle);
 const hesapRozeti = (d) => d === "onayli" ? rozet("onaylandi", "Onaylandı", I.ok) : d === "reddedildi" ? rozet("reddedildi", "Reddedildi", I.red) : rozet("bekliyor", "Onay bekliyor", I.bekle);
 const bildirimHtml = (b) => b ? `<div class="bildirim ${b.tur}" role="${b.tur === "bad" ? "alert" : "status"}">${(b.tur === "ok" ? I.ok : b.tur === "bad" ? I.red : I.bekle).replace("<svg ", '<svg class="simge" ')}<span>${b.kalin ? `<b>${esc(b.kalin)}</b> ` : ""}${esc(b.yazi)}</span></div>` : "";
 const logo = (sinif = "") => `<img class="logo-acik ${sinif}" src="marka/logo/lbe-drop_logo_yatay-siyah_oneri-v1.svg" alt="LBE Drop"><img class="logo-koyu ${sinif}" src="marka/logo/lbe-drop_logo_yatay-beyaz_oneri-v1.svg" alt="">`;
@@ -95,20 +96,87 @@ async function cikis() {
 
 // ---------- ekranlar: giriş, ilk giriş, onay bekliyor ----------
 function girisEkrani() {
+  if (S.kodAdimi) return kodEkrani();
+  const kodlu = S.kodGiris;
   kok.innerHTML = `<div class="orta"><div class="kutu">
     ${logo("logo")}
     <div><h1>Giriş yap</h1><p class="yardim" style="margin:6px 0 0">3B modelini LBE AddPlay'e göndermek için giriş yap.</p></div>
     ${bildirimHtml(S.bildirim)}
-    <button type="button" class="btn btn-birincil btn-tam" id="giris">Google ile giriş yap</button>
+    ${kodlu ? `<form id="eposta-form" novalidate>
+      <label class="alan">E-posta<input class="girdi" name="eposta" type="email" inputmode="email" autocomplete="email" placeholder="ad.soyad@ornek.edu.tr" maxlength="200" value="${esc(S.sonEposta || "")}"><span class="alan-hata" id="eposta-hata" hidden></span></label>
+      <button class="btn btn-birincil btn-tam" id="kod-iste">Kod gönder</button>
+      <p class="yardim" style="margin:0">Adresine 6 haneli bir giriş kodu göndeririz. Şifre gerekmez.</p>
+    </form>
+    <div class="ya-da"><span>ya da</span></div>` : ""}
+    <button type="button" class="btn ${kodlu ? "" : "btn-birincil"} btn-tam" id="giris">Google ile giriş yap</button>
     <p class="yardim" style="margin:0">Hesabın ilk girişte onay bekler; yönetici onaylayınca model yükleyebilirsin.</p>
   </div></div>`;
   S.bildirim = null;
   document.getElementById("giris").onclick = (e) => { e.currentTarget.disabled = true; girisBaslat(); };
+  const form = document.getElementById("eposta-form");
+  if (!form) return;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const eposta = form.eposta.value.trim().toLowerCase(), hata = document.getElementById("eposta-hata"), dugme = document.getElementById("kod-iste");
+    const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; form.eposta.classList.add("hatali"); };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(eposta)) return goster("E-posta adresini kontrol et.");
+    dugme.disabled = true; dugme.textContent = "Kod gönderiliyor…";
+    try {
+      const v = await api("/giris/kod/iste", { yontem: "POST", govde: { eposta } });
+      S.sonEposta = eposta; S.kodAdimi = { eposta, yeniden: Date.now() + (v.bekle || 60) * 1000, dakika: v.gecerli_dakika || 10 };
+      ciz();
+    } catch (x) { dugme.disabled = false; dugme.textContent = "Kod gönder"; goster(x.message); }
+  };
+}
+// E-posta koduyla girişin ikinci adımı: gelen 6 haneli kod yazılır.
+function kodEkrani() {
+  const k = S.kodAdimi;
+  kok.innerHTML = `<div class="orta"><div class="kutu">
+    ${logo("logo")}
+    <div><h1>Kodu yaz</h1><p class="yardim" style="margin:6px 0 0"><b>${esc(k.eposta)}</b> adresine 6 haneli bir kod gönderdik. Kod ${k.dakika} dakika geçerli. Gelmediyse spam klasörüne bak.</p></div>
+    ${bildirimHtml(S.bildirim)}
+    <form id="kod-form" novalidate>
+      <label class="alan">Giriş kodu<input class="girdi kod-girdi sayisal" name="kod" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="000000"><span class="alan-hata" id="kod-hata" hidden></span></label>
+      <button class="btn btn-birincil btn-tam" id="kod-gir">Giriş yap</button>
+    </form>
+    <div class="dugmeler"><button type="button" class="btn btn-kucuk" id="yeni-kod" disabled>Yeni kod iste</button><button type="button" class="btn btn-kucuk" id="adres-degis">Adresi değiştir</button></div>
+  </div></div>`;
+  S.bildirim = null;
+  const form = document.getElementById("kod-form"), hata = document.getElementById("kod-hata"), yeni = document.getElementById("yeni-kod"), gir = document.getElementById("kod-gir");
+  const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; form.kod.classList.add("hatali"); };
+  const say = () => {
+    if (!yeni.isConnected || S.kodAdimi !== k) return;
+    const kalan = Math.ceil((k.yeniden - Date.now()) / 1000);
+    yeni.disabled = kalan > 0; yeni.textContent = kalan > 0 ? `Yeni kod iste (${kalan} sn)` : "Yeni kod iste";
+    if (kalan > 0) setTimeout(say, 500);
+  };
+  say();
+  form.kod.focus();
+  form.kod.oninput = () => { form.kod.value = form.kod.value.replace(/\D/g, "").slice(0, 6); };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const kod = form.kod.value.trim();
+    if (!/^\d{6}$/.test(kod)) return goster("6 haneli kodu yaz.");
+    gir.disabled = true; gir.textContent = "Kod doğrulanıyor…";
+    try {
+      const v = await api("/giris/kod/dogrula", { yontem: "POST", govde: { eposta: k.eposta, kod } });
+      S.token = v.token; S.ben = v.ben; S.kodAdimi = null; depo.yaz("lbe-token", v.token); ciz();
+    } catch (x) { gir.disabled = false; gir.textContent = "Giriş yap"; goster(x.message); }
+  };
+  yeni.onclick = async () => {
+    yeni.disabled = true;
+    try {
+      const v = await api("/giris/kod/iste", { yontem: "POST", govde: { eposta: k.eposta } });
+      k.yeniden = Date.now() + (v.bekle || 60) * 1000;
+      S.bildirim = { tur: "ok", yazi: "Yeni kod gönderildi." }; ciz();
+    } catch (x) { goster(x.message); yeni.disabled = false; }
+  };
+  document.getElementById("adres-degis").onclick = () => { S.kodAdimi = null; ciz(); };
 }
 function ilkGirisEkrani() {
   kok.innerHTML = `<div class="orta"><div class="kutu">
     ${logo("logo")}
-    <div><h1>Adını yaz</h1><p class="yardim" style="margin:6px 0 0">Google hesabından ad gelmedi. Yüklediğin modellerde bu ad görünür.</p></div>
+    <div><h1>Adını yaz</h1><p class="yardim" style="margin:6px 0 0">Yüklediğin modellerde bu ad görünür.</p></div>
     <div id="hata"></div>
     <form id="form" novalidate>
       <label class="alan">Ad soyad<input class="girdi" name="ad" value="${esc(S.ben.ad)}" autocomplete="name" maxlength="120"></label>
@@ -144,16 +212,18 @@ function bekliyorEkrani() {
 const SAYFALAR = [
   { id: "yukle", ad: "Model yükle", kisa: "Yükle", simge: I.yukle },
   { id: "yuklemelerim", ad: "Yüklemelerim", kisa: "Yüklemeler", simge: I.liste },
-  { id: "kullanicilar", ad: "Kullanıcılar", kisa: "Kişiler", simge: I.kisiler, yonetici: true },
-  { id: "ayarlar", ad: "Ayarlar", simge: I.ayar, yonetici: true },
+  { id: "onay", ad: "Onay", simge: I.ok, rol: ["akademisyen", "onaylayici", "yonetici"] },
+  { id: "kullanicilar", ad: "Kullanıcılar", kisa: "Kişiler", simge: I.kisiler, rol: ["yonetici"] },
+  { id: "ayarlar", ad: "Ayarlar", simge: I.ayar, rol: ["yonetici"] },
   { id: "profil", ad: "Profil", simge: I.kisi },
 ];
-const gorunenSayfalar = () => SAYFALAR.filter((s) => !s.yonetici || S.ben.rol === "yonetici");
+const gorunenSayfalar = () => SAYFALAR.filter((s) => !s.rol || s.rol.includes(S.ben.rol));
 const simdikiSayfa = () => { const id = location.hash.replace("#", ""); return gorunenSayfalar().find((s) => s.id === id) || SAYFALAR[0]; };
 const ROL_NOTU = {
-  yukleyici: "Yükleyici: model yükler, kendi modellerinin durumunu görür.",
-  onaylayici: "Onaylayıcı: modelleri LBE Drop Onay uygulamasında onaylar. Burada model yükleyebilir.",
-  yonetici: "Yönetici: hesapları onaylar, rol atar, Drive'ı bağlar. Model onayı LBE Drop Onay uygulamasındadır.",
+  yukleyici: "Öğrenci: model yükler, kendi modellerinin durumunu görür.",
+  akademisyen: "Akademisyen: model yükler; kendisini seçen yüklemelere ön onay verir ya da reddeder.",
+  onaylayici: "YUVerse sorumlusu: ön onayı verilen modelleri onaylar, hoca adına ön onay verebilir, modelleri lab bilgisayarına indirir.",
+  yonetici: "Sistem yöneticisi: bütün onay adımları, hesaplar, roller ve Drive bağlantısı.",
 };
 function kabuk(sayfa, icerik) {
   const bag = (s, kisa) => `<a href="#${s.id}"${s.id === sayfa.id ? ' aria-current="page"' : ""}>${kisa ? s.simge + esc(s.kisa || s.ad) : esc(s.ad)}</a>`;
@@ -206,15 +276,25 @@ function yukleSayfasi(sayfa) {
       <form class="kutu" id="form" novalidate>
         <label class="alan">Ad soyad<input class="girdi" name="yukleyen_ad" autocomplete="name" maxlength="80" value="${esc(S.ben.ad || "")}"><span class="alan-hata" id="kisi-hata" hidden>${I.red.replace("<svg ", '<svg class="simge" ')}Ad soyadını yaz.</span></label>
         <label class="alan">Proje adı<input class="girdi" name="model_adi" placeholder="Örn. Kule maketi" maxlength="80"><span class="alan-hata" id="ad-hata" hidden>${I.red.replace("<svg ", '<svg class="simge" ')}Proje adını yaz.</span></label>
+        <div id="akademisyen-alan"></div>
         <label class="alan">Ders kodu<input class="girdi" name="ders_kodu" placeholder="Örn. ARCH 201" maxlength="20" value="${esc(depo.al("lbe-ders") || "")}"></label>
         <div class="alan">Yükleme zamanı<span class="girdi salt sayisal" id="zaman"></span><span class="ek">Kendiliğinden eklenir: "Yükle"ye bastığın tarih, saat ve dakika.</span></div>
         <div class="bildirim bilgi"><span><b>Bu bilgiler modelin altında gösterilir.</b> Ad soyad, proje adı ve yükleme zamanı LBE AddPlay'de modelle birlikte herkese görünür; doğru yaz.</span></div>
         <button class="btn btn-birincil btn-tam">Yükle</button>
-        <p class="yardim">Yüklenen model, onaylanana kadar "Onay bekliyor" görünür.</p>
+        <p class="yardim">Model önce ilgili akademisyenin, sonra YUVerse sorumlusunun onayından geçer; onaylanınca lab bilgisayarına iner.</p>
       </form>
     </div>`);
   S.bildirim = null;
   let dosya = null;
+  // İlgili akademisyen: sistemde akademisyen varsa seçmek zorunlu; ön onayı o verir.
+  let akademisyenVar = false;
+  api("/akademisyenler").then((v) => {
+    const alan = document.getElementById("akademisyen-alan");
+    if (!alan || !v.akademisyenler.length) return;
+    akademisyenVar = true;
+    const son = depo.al("lbe-akademisyen");
+    alan.innerHTML = `<label class="alan">İlgili akademisyen<select class="girdi tam" name="akademisyen_id"><option value="">Seç…</option>${v.akademisyenler.map((a) => `<option value="${a.id}"${String(a.id) === son ? " selected" : ""}>${esc(a.ad)}</option>`).join("")}</select><span class="ek">Modelin önce bu akademisyenin ön onayına, sonra YUVerse sorumlusuna gider.</span><span class="alan-hata" id="akademisyen-hata" hidden>${I.red.replace("<svg ", '<svg class="simge" ')}İlgili akademisyeni seç.</span></label>`;
+  }).catch(() => {});
   const zaman = document.getElementById("zaman"), zamanYaz = () => { if (zaman.isConnected) { zaman.textContent = tarihYaz(new Date()); setTimeout(zamanYaz, 15000); } };
   zamanYaz();
   const birak = document.getElementById("birak"), girdi = document.getElementById("dosya"), secili = document.getElementById("secili"), hata = document.getElementById("hata"), form = document.getElementById("form");
@@ -240,9 +320,11 @@ function yukleSayfasi(sayfa) {
     document.getElementById("ad-hata").hidden = !!ad; form.model_adi.classList.toggle("hatali", !ad);
     document.getElementById("kisi-hata").hidden = !!kisi; form.yukleyen_ad.classList.toggle("hatali", !kisi);
     if (!dosya) { birak.classList.add("hatali"); hata.innerHTML = bildirimHtml({ tur: "bad", yazi: "Model dosyasını seç." }); }
-    if (!ad || !kisi || !dosya) return;
-    depo.yaz("lbe-ders", ders);
-    yuklemeBaslat(dosya, ad, ders, kisi);
+    const akademisyen = akademisyenVar ? form.akademisyen_id.value : "";
+    if (akademisyenVar) { document.getElementById("akademisyen-hata").hidden = !!akademisyen; form.akademisyen_id.classList.toggle("hatali", !akademisyen); }
+    if (!ad || !kisi || !dosya || (akademisyenVar && !akademisyen)) return;
+    depo.yaz("lbe-ders", ders); if (akademisyen) depo.yaz("lbe-akademisyen", akademisyen);
+    yuklemeBaslat(dosya, ad, ders, kisi, akademisyen);
   };
   yukleSayfasi.sec = sec;      // sürükle-bırak dışında dosya vermek için (deneme)
 }
@@ -258,7 +340,7 @@ function yukleniyorCiz(sayfa) {
     </div>`);
   document.getElementById("vazgec").onclick = () => { y.iptal = true; if (y.xhr) y.xhr.abort(); };
 }
-async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd) {
+async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd, akademisyenId) {
   const y = S.yukleme = { dosya, asama: "Hazırlanıyor", yuzde: 0, gecen: 0, xhr: null, iptal: false };
   ciz();
   const guncelle = () => {
@@ -270,7 +352,7 @@ async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd) {
     document.getElementById("gecen").textContent = `${boyutYaz(y.gecen)} / ${boyutYaz(dosya.size)}`;
   };
   try {
-    const a = await api("/yuklemeler", { yontem: "POST", govde: { model_adi: modelAdi, yukleyen_ad: yukleyenAd, ders_kodu: dersKodu, dosya_adi: dosya.name, boyut: dosya.size } });
+    const a = await api("/yuklemeler", { yontem: "POST", govde: { model_adi: modelAdi, yukleyen_ad: yukleyenAd, ders_kodu: dersKodu, ...(akademisyenId ? { akademisyen_id: Number(akademisyenId) } : {}), dosya_adi: dosya.name, boyut: dosya.size } });
     if (y.iptal) throw new ApiHata(-1, "");
     y.asama = "Yükleniyor"; guncelle();
     // Dosya sunucudan geçmez: doğrudan Drive'ın verdiği yükleme adresine gider.
@@ -304,8 +386,8 @@ async function yuklemelerimSayfasi(sayfa) {
   let liste;
   try { liste = (await api("/yuklemeler")).yuklemeler; } catch (x) { return bitir(ust + hataKutusu(x)); }
   bitir(ust + (liste.length ? `<div class="kutu dar" style="gap:0">${liste.map((m) => `<div class="yukleme">
-      <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.durum)}</div>
-      <span class="yardim sayisal">${[m.yukleyen_ad, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
+      <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.asama)}</div>
+      <span class="yardim sayisal">${[m.yukleyen_ad, m.akademisyen_ad && "Akademisyen: " + m.akademisyen_ad, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
       ${m.durum === "reddedildi" && m.ret_notu ? `<div class="ek-not"><b>Ret notu:</b> ${esc(m.ret_notu)}</div>` : ""}
     </div>`).join("")}</div>` : '<div class="kutu dar"><p class="yardim">Henüz yüklediğin model yok.</p></div>'));
   function bitir(html) { if (simdikiSayfa().id === sayfa.id) document.getElementById("icerik").innerHTML = html; }
@@ -342,7 +424,58 @@ function profilSayfasi(sayfa) {
   };
 }
 
-// ---------- Kullanıcılar (yalnız yönetici) ----------
+// ---------- Onay (akademisyen: ön onay · YUVerse sorumlusu ve sistem yöneticisi: son onay, hoca adına ön onay, indirme) ----------
+async function onaySayfasi(sayfa) {
+  const hoca = S.ben.rol === "akademisyen";
+  const ust = baslik("Onay", hoca ? "Seni ilgili akademisyen olarak seçen yüklemeler. Ön onay verdiğin model YUVerse sorumlusuna düşer." : "Model önce akademisyen ön onayından, sonra senin onayından geçer. Onayladığın model lab bilgisayarına iner.") + `<div id="hata">${bildirimHtml(S.bildirim)}</div>`;
+  S.bildirim = null;
+  kabuk(sayfa, ust + '<p class="yardim">Yükleniyor…</p>');
+  let liste;
+  try { liste = (await api("/onay/yuklemeler?durum=gelen,hafifletildi,onaylandi,reddedildi")).yuklemeler; }
+  catch (x) { if (simdikiSayfa().id === sayfa.id) document.getElementById("icerik").innerHTML = ust + hataKutusu(x); return; }
+  if (simdikiSayfa().id !== sayfa.id) return;
+  const kart = (m) => {
+    const d = [];
+    if (m.asama === "akademisyen") d.push(`<button type="button" class="btn btn-birincil btn-kucuk" data-is="on-onay" data-id="${m.id}">${hoca ? "Ön onay ver" : "Hoca adına ön onay ver"}</button>`);
+    if (m.asama === "sorumlu" && !hoca) d.push(`<button type="button" class="btn btn-birincil btn-kucuk" data-is="onayla" data-id="${m.id}">Onayla</button>`);
+    if (m.asama === "akademisyen" || (m.asama === "sorumlu" && !hoca)) d.push(`<button type="button" class="btn btn-kucuk btn-red" data-ret="${m.id}">Reddet</button>`);
+    if (m.asama === "onaylandi" && !hoca) d.push(`<button type="button" class="btn btn-kucuk" data-is="indir" data-id="${m.id}"${m.indirme.istendi || !m.indirme.tarih ? " disabled" : ""}>Sunucuya indir</button>`);
+    const indirme = m.asama !== "onaylandi" ? "" : m.indirme.istendi || !m.indirme.tarih ? "Lab bilgisayarına indirilmeyi bekliyor" : "Lab bilgisayarına indirildi: " + tarihYaz(m.indirme.tarih);
+    return `<div class="yukleme">
+      <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.asama)}</div>
+      <span class="yardim sayisal">${[m.yukleyen_ad, m.ogrenci_no, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.ozgun.boyut || m.hafif.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
+      ${m.akademisyen ? `<span class="yardim">Akademisyen: ${esc(m.akademisyen.ad)}${m.on_onay ? ` · ön onay ${esc(tarihYaz(m.on_onay.tarih))}${m.on_onay.hoca_adina ? " (hoca adına)" : ""}` : ""}</span>` : '<span class="yardim">Akademisyen seçilmedi</span>'}
+      ${indirme ? `<span class="yardim">${esc(indirme)}</span>` : ""}
+      ${m.asama === "reddedildi" && m.ret_notu ? `<div class="ek-not"><b>Ret notu:</b> ${esc(m.ret_notu)}</div>` : ""}
+      ${d.length ? `<div class="dugmeler">${d.join("")}</div>` : ""}
+      <form class="ret-form" data-ret-form="${m.id}" hidden novalidate><label class="alan">Ret notu<input class="girdi" name="not" maxlength="500" placeholder="Yükleyen bu notu görür"></label><div class="dugmeler"><button class="btn btn-kucuk btn-red">Reddet</button><button type="button" class="btn btn-kucuk" data-ret-vazgec="${m.id}">Vazgeç</button></div></form>
+    </div>`;
+  };
+  const bolum = (ad, satirlar, bos) => `<h2 class="bolum-baslik">${esc(ad)} <span class="yardim sayisal">${satirlar.length}</span></h2><div class="kutu" style="gap:0">${satirlar.length ? satirlar.map(kart).join("") : `<p class="yardim">${esc(bos)}</p>`}</div>`;
+  const sec = (a) => liste.filter((m) => m.asama === a);
+  document.getElementById("icerik").innerHTML = ust + `<div class="dar-genis">${hoca
+    ? bolum("Ön onayını bekleyenler", sec("akademisyen"), "Ön onayını bekleyen model yok.") + bolum("Ön onay verdiklerin", sec("sorumlu"), "YUVerse sorumlusunu bekleyen model yok.")
+    : bolum("Onayını bekleyenler", sec("sorumlu"), "Onayını bekleyen model yok.") + bolum("Akademisyen ön onayı bekleyenler", sec("akademisyen"), "Akademisyen ön onayı bekleyen model yok.")}
+    ${bolum("Onaylananlar", sec("onaylandi"), "Onaylanan model yok.")}${bolum("Reddedilenler", sec("reddedildi"), "Reddedilen model yok.")}</div>`;
+  const icerik = document.getElementById("icerik");
+  const yap = async (yol, govde, tamam) => {
+    try { await api(yol, { yontem: "POST", govde }); S.bildirim = { tur: "ok", yazi: tamam }; }
+    catch (x) { S.bildirim = { tur: "bad", yazi: x.message }; }
+    if (simdikiSayfa().id === sayfa.id) onaySayfasi(sayfa);
+  };
+  const TAMAM = { "on-onay": "Ön onay verildi; model YUVerse sorumlusuna düştü.", onayla: "Onaylandı; model lab bilgisayarına indirilecek.", indir: "İndirme sırasına alındı." };
+  icerik.querySelectorAll("[data-is]").forEach((b) => { b.onclick = () => { b.disabled = true; yap(`/onay/yuklemeler/${b.dataset.id}/${b.dataset.is}`, undefined, TAMAM[b.dataset.is]); }; });
+  icerik.querySelectorAll("[data-ret]").forEach((b) => { b.onclick = () => { const f = icerik.querySelector(`[data-ret-form="${b.dataset.ret}"]`); f.hidden = false; f.not.focus(); }; });
+  icerik.querySelectorAll("[data-ret-vazgec]").forEach((b) => { b.onclick = () => { icerik.querySelector(`[data-ret-form="${b.dataset.retVazgec}"]`).hidden = true; }; });
+  icerik.querySelectorAll("[data-ret-form]").forEach((f) => { f.onsubmit = (e) => {
+    e.preventDefault();
+    const not = f.not.value.trim();
+    if (!not) { f.not.classList.add("hatali"); f.not.focus(); return; }
+    yap(`/onay/yuklemeler/${f.dataset.retForm}/reddet`, { not }, "Reddedildi; yükleyen notu görür.");
+  }; });
+}
+
+// ---------- Kullanıcılar (yalnız sistem yöneticisi) ----------
 async function kullanicilarSayfasi(sayfa) {
   const ust = baslik("Kullanıcılar", "Yeni hesap onay bekleyerek başlar. Onaylanan hesap model yükleyebilir.");
   kabuk(sayfa, ust + '<p class="yardim">Yükleniyor…</p>');
@@ -405,7 +538,7 @@ async function ayarlarSayfasi(sayfa) {
 }
 
 // ---------- çizim ----------
-const CIZ = { yukle: yukleSayfasi, yuklemelerim: yuklemelerimSayfasi, profil: profilSayfasi, kullanicilar: kullanicilarSayfasi, ayarlar: ayarlarSayfasi };
+const CIZ = { yukle: yukleSayfasi, yuklemelerim: yuklemelerimSayfasi, onay: onaySayfasi, profil: profilSayfasi, kullanicilar: kullanicilarSayfasi, ayarlar: ayarlarSayfasi };
 function ciz() {
   if (!API) { kok.innerHTML = '<p class="yukleniyor">Sunucu adresi ayarlanmamış (ayar.js).</p>'; return; }
   if (!S.token || !S.ben) return girisEkrani();
@@ -420,6 +553,7 @@ window.addEventListener("beforeunload", (e) => { if (S.yukleme) e.preventDefault
 (async function basla() {
   S.token = depo.al("lbe-token");
   await girisDonusu();
+  try { S.kodGiris = !!(await api("/saglik")).kod_giris; } catch { S.kodGiris = false; }      // e-posta koduyla giriş sunucuda açık mı
   if (S.token && !S.ben) { try { S.ben = (await api("/ben")).ben; } catch (x) { if (x.kod !== 401) S.bildirim = { tur: "bad", yazi: x.message }; if (x.kod !== 401) { kok.innerHTML = `<div class="orta"><div class="kutu">${logo("logo")}${bildirimHtml(S.bildirim)}<button type="button" class="btn btn-tam" onclick="location.reload()">Yeniden dene</button></div></div>`; return; } } }
   ciz();
 })();
