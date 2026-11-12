@@ -110,6 +110,7 @@ function girisEkrani() {
     <div class="ya-da"><span>ya da</span></div>` : ""}
     <button type="button" class="btn ${kodlu ? "" : "btn-birincil"} btn-tam" id="giris">Google ile giriş yap</button>
     <p class="yardim" style="margin:0">Hesabın ilk girişte onay bekler; yönetici onaylayınca model yükleyebilirsin.</p>
+    <p class="yardim" style="margin:0"><a href="gizlilik.html">Gizlilik</a></p>
   </div></div>`;
   S.bildirim = null;
   document.getElementById("giris").onclick = (e) => { e.currentTarget.disabled = true; girisBaslat(); };

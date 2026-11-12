@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Gizlilik · LBE Drop</title>
+<link rel="icon" href="marka/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="marka/favicon.ico">
+<link rel="stylesheet" href="marka/tokens/tokens.css">
+<link rel="stylesheet" href="marka/tokens/bilesenler.css">
+<link rel="stylesheet" href="panel.css">
+<script>
+  (function () {
+    var m = window.matchMedia("(prefers-color-scheme: dark)");
+    var uygula = function () { document.documentElement.toggleAttribute("data-theme", false); if (m.matches) document.documentElement.setAttribute("data-theme", "dark"); };
+    uygula(); m.addEventListener("change", uygula);
+  })();
+</script>
+</head>
+<body class="drop">
+<main class="metin-sayfa">
+  <p class="yardim"><a href="./">← LBE Drop</a></p>
+  <h1>Gizlilik</h1>
+  <p class="yardim">Son güncelleme: 12 Kasım 2026</p>
+
+  <p>LBE Drop, Yaşar Üniversitesi VR laboratuvarının (YUVerse) 3B model yükleme aracıdır. Öğrenciler ve akademisyenler modellerini buradan yükler; onaylanan modeller laboratuvardaki LBE AddPlay oyununda gösterilir. Bu sayfa hangi bilgiyi tuttuğumuzu ve ne için kullandığımızı anlatır.</p>
+
+  <h2>Tuttuğumuz bilgiler</h2>
+  <ul>
+    <li><strong>Hesap:</strong> e-posta adresin ve ad soyadın. Google ile girersen Google'ın verdiği hesap kimliği de saklanır. İstersen öğrenci numaranı da yazabilirsin; zorunlu değildir.</li>
+    <li><strong>Yüklemeler:</strong> model dosyan, proje adı, ders kodu (yazdıysan), seçtiğin akademisyen, yükleme zamanı, onay ve ret kayıtları.</li>
+    <li><strong>Giriş:</strong> e-posta koduyla girişte kodun yalnız özeti saklanır ve 10 dakikada geçersiz olur. Oturum anahtarın tarayıcında durur; "Çıkış yap" deyince silinir.</li>
+  </ul>
+  <p>Reklam ya da izleme çerezi kullanmayız, ziyaret istatistiği toplamayız.</p>
+
+  <h2>Ne için kullanırız</h2>
+  <ul>
+    <li>Seni tanımak ve hesabını onaylamak.</li>
+    <li>Modelini ilgili akademisyene ve YUVerse sorumlusuna onay için göstermek.</li>
+    <li>Onaylanan modeli oyunda göstermek.</li>
+  </ul>
+
+  <h2>Kim görür</h2>
+  <ul>
+    <li><strong>Oyunda herkes:</strong> modelin altında ad soyadın, proje adı ve yükleme zamanı yazar.</li>
+    <li><strong>Seçtiğin akademisyen, YUVerse sorumlusu ve sistem yöneticisi:</strong> yüklemeni ve hesap bilgilerini görür.</li>
+    <li><strong>Öğrenci numaran</strong> oyuna hiç gönderilmez; yalnız onay verenler görür.</li>
+  </ul>
+  <p>Bilgilerini satmayız, reklam için kullanmayız, laboratuvar dışında kimseyle paylaşmayız.</p>
+
+  <h2>Nerede durur</h2>
+  <p>Hesap ve yükleme kayıtları Cloudflare'deki veritabanımızda, model dosyaları laboratuvarın Google Drive hesabında durur. Onaylanan modeller laboratuvar bilgisayarına indirilir.</p>
+
+  <h2>Google hesabı izinleri</h2>
+  <ul>
+    <li><strong>Google ile giriş:</strong> yalnız adın, e-posta adresin ve hesap kimliğin okunur. Drive'ına ya da postalarına erişmeyiz.</li>
+    <li><strong>Drive (yalnız sistem yöneticisinin bağladığı laboratuvar hesabı):</strong> uygulama yalnız kendi oluşturduğu dosyalara erişir; modeller oraya yüklenir.</li>
+    <li><strong>Gmail (yalnız sistem yöneticisinin bağladığı hesap):</strong> yalnız giriş kodu e-postası göndermek için kullanılır. Posta kutusu okunmaz.</li>
+  </ul>
+  <p>LBE Drop'un Google API'lerinden aldığı bilgileri kullanması ve aktarması, Sınırlı Kullanım koşulları dahil, <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Hizmetleri Kullanıcı Verileri Politikası</a>'na uyar. Bu bilgiler yapay zekâ modeli eğitmek için kullanılmaz.</p>
+
+  <h2>Silme ve düzeltme</h2>
+  <p>Ad soyadını ve öğrenci numaranı panelde Profil sayfasından değiştirebilirsin. Aynı sayfadaki "Hesabımı sil" ile hesabını kendin silebilirsin: profilin ve oturumların silinir, onaylanmış modellerin kütüphanede kalır. Bir modelinin ya da yükleme kaydının da silinmesini istersen aşağıdaki adrese yaz; Drive'daki ve laboratuvar bilgisayarındaki kopyalarını sileriz.</p>
+
+  <h2>İletişim</h2>
+  <p><a href="mailto:yu.verse01@gmail.com">yu.verse01@gmail.com</a></p>
+</main>
+</body>
+</html>
