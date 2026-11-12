@@ -1,0 +1,100 @@
+/* LBE Drop web paneli · ekler. Önce marka/tokens/tokens.css ve bilesenler.css yüklenir; burada yeni renk tanımlanmaz. */
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+html[data-theme="dark"]{color-scheme:dark}
+html:not([data-theme="dark"]) .logo-koyu{display:none!important}
+html[data-theme="dark"] .logo-acik{display:none!important}
+button{font-family:inherit}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.btn-tam{width:100%}
+.sayisal{font-variant-numeric:tabular-nums}
+.yukleniyor{padding:var(--s-7);text-align:center;color:var(--muted)}
+.simge{width:16px;height:16px;flex:none}
+[hidden]{display:none!important}
+
+/* Gerçek form alanları (.girdi ile aynı görünüm) */
+input.girdi,select.girdi{width:100%;display:block}
+input.girdi::placeholder{color:var(--muted);opacity:1}
+select.girdi{width:auto;height:36px;padding:0 8px;font:500 14px/1 var(--font)}
+.girdi.hatali{border-color:var(--bad)}
+.alan .ek{font:400 13px/1.45 var(--font);color:var(--muted)}
+.alan-hata{display:flex;align-items:center;gap:6px;font:600 13px/1.3 var(--font);color:var(--bad)}
+form{display:grid;gap:var(--s-4);margin:0}
+
+/* Bildirim: durum rengi + simge + sözcük */
+.bildirim{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r-md);padding:12px 14px;font:500 14px/1.4 var(--font)}
+.bildirim svg{margin-top:2px}
+.bildirim.ok{background:var(--ok-bg);color:var(--ok)}
+.bildirim.warn{background:var(--warn-bg);color:var(--warn)}
+.bildirim.bad{background:var(--bad-bg);color:var(--bad)}
+.bildirim.bilgi{background:var(--surface-2);color:var(--fg);font-weight:400}
+.girdi.salt{display:flex;align-items:center;background:var(--surface-2);color:var(--muted)}
+
+/* İdeal yükleme koşulları */
+.kosullar h2{font:700 16px/1.25 var(--font);margin:0}
+.kosullar dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;margin:0;font:400 14px/1.45 var(--font)}
+.kosullar dt{font-weight:600}
+.kosullar dd{margin:0;color:var(--muted)}
+
+/* Kabuk */
+.panel{min-height:100vh}
+.panel .sutun{min-width:0;display:grid;grid-template-rows:auto 1fr}
+.yan button.cikis{margin-top:var(--s-2)}
+.avatar-b{width:44px;height:44px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font:700 14px/1 var(--font);flex:none}
+.avatar-b.kucuk{width:36px;height:36px;font-size:12px}
+.kisi-satiri{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.kisi-satiri .yardim{display:block;overflow-wrap:anywhere}
+.kisi-satiri b{font:700 15px/1.25 var(--font);display:block;overflow-wrap:anywhere}
+.kutu{display:grid;gap:var(--s-4);align-content:start}
+.kutu.tablolu{padding:0;overflow:auto}
+.tablo tr:last-child td{border-bottom:0}
+.iki-sutun{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:var(--s-5);align-items:start}
+.dar{max-width:560px}
+
+/* Dosya bırakma alanı */
+.birak{cursor:pointer;min-height:240px}
+.birak.ustunde{border-color:var(--fg);background:var(--surface-2)}
+.birak.hatali{border-color:var(--bad)}
+.birak .ic{display:grid;gap:10px;justify-items:center}
+.birak img{width:56px;height:56px}
+.birak b{font:700 18px/1.2 var(--font)}
+.dosya{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center}
+.dosya .kucuk-resim{width:44px;height:44px}
+.dosya b{font:600 14px/1.25 var(--font);display:block;overflow-wrap:anywhere}
+.ilerleme-ust{display:flex;justify-content:space-between;gap:8px;font:600 14px/1.2 var(--font)}
+
+/* Yüklemelerim */
+.yukleme{display:grid;gap:8px;padding:var(--s-4) 0;border-bottom:1px solid var(--line)}
+.yukleme:first-child{padding-top:0}
+.yukleme:last-child{border-bottom:0;padding-bottom:0}
+.yukleme .ust{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.yukleme b{font:700 15px/1.25 var(--font);overflow-wrap:anywhere}
+
+/* Giriş ve bekleme ekranları */
+.orta{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:var(--s-4)}
+.orta .kutu{width:100%;max-width:420px;gap:20px;padding:40px}
+.orta h1{font:700 26px/1.2 var(--font);letter-spacing:-.01em;margin:0}
+.orta .logo{height:48px;justify-self:start}
+
+/* Onay diyaloğu */
+dialog.kutu{width:440px;max-width:calc(100vw - 32px);color:var(--fg);border:1px solid var(--line-strong)}
+dialog.kutu:not([open]){display:none}
+dialog.kutu::backdrop{background:rgba(0,0,0,.5)}
+dialog.kutu h2{font:700 20px/1.2 var(--font);margin:0}
+dialog.kutu p{margin:0}
+dialog.kutu .dugmeler{justify-content:flex-end}
+
+/* Telefon: kenar menü yerine alt sekmeler */
+.alt-sekme{display:none}
+@media (max-width:700px){
+  .panel{padding-bottom:64px}
+  .iki-sutun{grid-template-columns:1fr}
+  .orta .kutu{padding:var(--s-5)}
+  .ust-bar .rol{display:none}
+  .baslik-satiri{flex-wrap:wrap}
+  .alt-sekme{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--bg);border-top:1px solid var(--line);z-index:5}
+  .alt-sekme a{flex:1 1 0;min-width:0;white-space:nowrap;display:grid;justify-items:center;gap:4px;padding:10px 0 12px;text-decoration:none;color:var(--muted);font:500 12px/1 var(--font)}
+  .alt-sekme a svg{width:22px;height:22px}
+  .alt-sekme a[aria-current="page"]{color:var(--fg);font-weight:700}
+  .tablo th:nth-child(3),.tablo td:nth-child(3),.tablo th:nth-child(4),.tablo td:nth-child(4){display:none}
+}

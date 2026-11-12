@@ -1,0 +1,31 @@
+/* LBE Drop — tasarım değişkenleri · öneri v1 (Kasım 2026)
+   Yazılım: tek yazı ailesi Inter Tight; ürüne özel vurgu rengi yok. Karo rengi Uzay lacivert.
+   Durum renkleri yalnız rozet ve bildirimde, her zaman sözcük ve simgeyle.
+   Tema: açık (varsayılan). Koyu için <html data-theme="dark">. */
+
+@font-face{font-family:"Inter Tight";src:url("../fonts/InterTight-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+
+:root{
+  --karo:#1C2140;           /* ikon karosu (Uzay). Metin değil; üzerinde beyaz 15,7:1 */
+  --bg:#FFFFFF;             /* kart, form, tablo zemini */
+  --surface:#F5F6F8;        /* sayfa zemini */
+  --surface-2:#EDEEF2;      /* üçüncü yüzey, avatar */
+  --fg:#2B2B2B;             /* metin (beyazda 14,2:1) */
+  --logo-metin:#0A0A0A;     /* logodaki "LBE Drop" yazısı */
+  --muted:#5B6070;          /* ikincil metin (beyazda 6,3:1, surface'ta 5,8:1) */
+  --line:#E3E5EA;           /* ayraç */
+  --line-strong:#8A8F9C;    /* alan kenarı, bırakma alanı çerçevesi */
+  --focus:#2B2B2B;
+  --ok:#1B7A35; --ok-bg:#E6F4EA;       /* Onaylandı */
+  --warn:#8A5300; --warn-bg:#FFF4D6;   /* Onay bekliyor */
+  --bad:#B42318; --bad-bg:#FDECEA;     /* Reddedildi */
+  --font:"Inter Tight",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px; --s-6:32px; --s-7:48px; --s-8:64px;
+  --r-sm:6px; --r-md:8px; --r-lg:16px; --r-full:999px;
+  --h-girdi:44px;
+}
+[data-theme="dark"]{
+  --bg:#0F0F0F; --surface:#000000; --surface-2:#1A1A1A; --fg:#F5F5F5; --logo-metin:#F5F5F5; --muted:#A1A1A1;
+  --line:#262626; --line-strong:#6E6E6E; --focus:#F5F5F5;
+  --ok:#4ADE80; --ok-bg:#0D2615; --warn:#FDBA74; --warn-bg:#2A1A06; --bad:#FF7A6E; --bad-bg:#2C0F0C;
+}
