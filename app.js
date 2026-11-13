@@ -129,8 +129,17 @@ const yuverseSahne = (() => {
     return `<g class="iz-kisi ${tur}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><ellipse class="iz-golge" rx="13" ry="6"/><rect class="iz-beden" x="-8" y="-36" width="16" height="34" rx="8"/>${
       tur === "hoca" ? '<path class="iz-kol" d="M-5 -27 L-27 -47"/><circle class="iz-beden" cx="-28" cy="-48" r="4"/>' : ""}<circle class="iz-beden" cy="-45" r="8"/><rect class="iz-gozluk" x="-9" y="-49" width="18" height="7" rx="3"/></g>`;
   };
-  const model = kilavuz([260, 180, 10], [260, 180, 232]) + kutu(218, 138, 0, 84, 84, 10) + kutu(227, 147, 30, 66, 66, 10, "a") + kutu(236, 156, 62, 48, 48, 36)
-    + kilavuz([260, 204, 80], [260, 232, 80]) + kutu(248, 232, 70, 24, 9, 21, "a") + kutu(240, 160, 124, 40, 40, 30) + kutu(234, 154, 182, 52, 52, 7, "a") + kutu(254, 174, 210, 12, 12, 20, "a");
+  // Ortadaki model: katlarına ve parçalarına ayrılmış bir kule. Parçalar alttan üste, arkadan öne çizilir.
+  const model = kilavuz([260, 180, 10], [260, 180, 278]) + kutu(218, 138, 0, 84, 84, 10)                                     // kaide (sergi)
+    + kutu(225, 145, 28, 70, 70, 8, "a")                                                                                        // temel
+    + kutu(232, 152, 54, 8, 8, 36) + kutu(232, 200, 54, 8, 8, 36) + kutu(280, 152, 54, 8, 8, 36)                                // kolonlar (arka, sol, sağ)
+    + kutu(246, 166, 54, 28, 28, 36, "a") + kutu(280, 200, 54, 8, 8, 36)                                                        // çekirdek, ön kolon
+    + kilavuz([260, 208, 70], [260, 236, 70]) + kutu(248, 236, 58, 24, 9, 24, "a")                                              // giriş (öne çıkmış)
+    + kutu(230, 150, 110, 60, 60, 6, "a")                                                                                       // döşeme
+    + kutu(238, 158, 136, 44, 44, 30) + kutu(244, 202, 146, 32, 2, 10, "a") + kutu(282, 164, 146, 2, 32, 10, "a")               // üst kat ve pencere bantları
+    + kilavuz([284, 180, 145], [314, 180, 145]) + kutu(314, 168, 142, 10, 24, 6, "a")                                           // balkon (yana çıkmış)
+    + kutu(232, 152, 188, 56, 56, 6, "a") + kutu(245, 165, 212, 30, 30, 14)                                                     // çatı, çatı katı
+    + kutu(257, 177, 242, 6, 6, 28, "a") + kutu(255, 175, 274, 10, 10, 4);                                                      // anten
   const X7 = [40, 113, 187, 260, 333, 407, 480], X6 = X7.filter((x) => x !== 260), X4 = [40, 113, 407, 480];
   const DOLU = new Set(["113,180", "407,180", "187,255", "333,105"]);
   const ogeler = [[30, X7], [105, X6], [180, X4], [255, X6], [330, X7]].flatMap(([y, xs]) => xs.map((x) => ({ d: x + y, s: kisi(x, y, DOLU.has(`${x},${y}`) ? "dolu" : "bos") })));   // 30 yer
