@@ -114,7 +114,7 @@ const izo = (() => {
     sahnede: sahne(kutu(8, -34, 0, 14, 26, 32) + kutu(-22, -14, 0, 6, 6, 10) + kutu(-36, -13, 10, 34, 4, 26) + kutu(8, 8, 0, 24, 24, 6) + kutu(13, 13, 6, 14, 14, 14, "a")),
   };
 })();
-// YUVerse sahnesi: 30 gözlük yeri (4'ü dolu, kalanı soluk), ortada parçalarına ayrılmış robot modeli, yanında anlatan hoca.
+// YUVerse sahnesi: 30 gözlük yeri (4'ü dolu, kalanı soluk), ortada parçalarına ayrılmış matkap modeli, yanında anlatan oturum yöneticisi.
 const yuverseSahne = (() => {
   const n = (x, y, z = 0) => [332 + (x - y) * 0.866, 120 + (x + y) * 0.5 - z];
   const N = (x, y, z) => n(x, y, z).map((v) => v.toFixed(1)).join(",");
@@ -129,39 +129,65 @@ const yuverseSahne = (() => {
     return `<g class="iz-kisi ${tur}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><ellipse class="iz-golge" rx="13" ry="6"/><rect class="iz-beden" x="-8" y="-36" width="16" height="34" rx="8"/>${
       tur === "hoca" ? '<path class="iz-kol" d="M-5 -27 L-27 -47"/><circle class="iz-beden" cx="-28" cy="-48" r="4"/>' : ""}<circle class="iz-beden" cy="-45" r="8"/><rect class="iz-gozluk" x="-9" y="-49" width="18" height="7" rx="3"/></g>`;
   };
-  // Eklem (küre) ve dikey silindir: robotun mafsalları, boynu, beli ve gevşek motorları için.
-  const kure = (x, y, z, r) => { const [cx, cy] = n(x, y, z); return `<circle class="iz-s iz-a2" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}"/><circle class="iz-a1" cx="${(cx - r * 0.3).toFixed(1)}" cy="${(cy - r * 0.35).toFixed(1)}" r="${(r * 0.32).toFixed(1)}"/>`; };
-  const silindir = (x, y, z, r, h, c = "n") => {
-    const [cx, cy] = n(x, y, z), rx = (r * 1.2247).toFixed(1), ry = (r * 0.7071).toFixed(1), sol = (cx - r * 1.2247).toFixed(1), sag = (cx + r * 1.2247).toFixed(1), alt = cy.toFixed(1), ust = (cy - h).toFixed(1);
-    return `<path class="iz-s iz-${c}2" d="M${sol} ${ust}L${sol} ${alt}A${rx} ${ry} 0 0 0 ${sag} ${alt}L${sag} ${ust}Z"/><ellipse class="iz-s iz-${c}1" cx="${cx.toFixed(1)}" cy="${ust}" rx="${rx}" ry="${ry}"/>`;
+  // Yatay silindir ya da koni (ekseni x boyunca): iki uç dairenin dış zarfı gövde, öndeki daire kapak.
+  const zarf = (ns) => {
+    const s = [...ns].sort((p, q) => p[0] - q[0] || p[1] - q[1]), cap = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+    const yari = (d) => { const h = []; for (const p of d) { while (h.length > 1 && cap(h[h.length - 2], h[h.length - 1], p) <= 0) h.pop(); h.push(p); } h.pop(); return h; };
+    return [...yari(s), ...yari(s.reverse())];
   };
-  // Ortadaki model: parçalarına ayrılmış insansı bir robot (yüzü öne, +y yönüne bakar). Özgün çizimdir; belirli bir ürünü göstermez.
-  // Parçalar alttan üste, arkadan öne çizilir. s: -1 sol, +1 sağ.
-  const bacak = (x) => kutu(x - 10, 166, 24, 20, 36, 8, "a") + kure(x, 180, 40, 5)                 // ayak, bilek
-    + kutu(x - 7, 173, 50, 14, 14, 38) + kutu(x - 6, 196, 54, 12, 2, 28, "a")                      // baldır ve öne çıkmış koruyucu
-    + kure(x, 180, 97, 6) + kutu(x - 9, 171, 108, 18, 18, 40) + kure(x, 180, 158, 7);              // diz, uyluk, kalça eklemi
-  const kol = (x) => kutu(x - 5, 174, 134, 10, 14, 12, "a") + kutu(x - 6, 174, 154, 12, 12, 34)    // el, ön kol
-    + kure(x, 180, 197, 5) + kutu(x - 7, 173, 206, 14, 14, 34);                                    // dirsek, üst kol
-  const model = kilavuz([260, 180, 10], [260, 180, 336]) + kutu(218, 138, 0, 84, 84, 10)           // kaide (sergi)
-    + bacak(240) + bacak(280)
-    + kutu(228, 168, 170, 64, 24, 14, "a") + silindir(260, 180, 190, 9, 8)                         // leğen, bel
-    + kol(191) + kilavuz([198, 180, 240], [226, 180, 240]) + kure(210, 180, 240, 8)                // sol kol (yana çıkmış) ve omuz eklemi
-    + kilavuz([260, 142, 232], [260, 164, 232]) + kutu(240, 128, 214, 40, 14, 36, "a")             // sırt bataryası (arkaya çıkmış)
-    + kutu(226, 164, 206, 68, 32, 52)                                                              // gövde
-    + kilavuz([260, 196, 233], [260, 216, 233]) + kutu(236, 216, 216, 48, 3, 34, "a")              // göğüs plakası (öne çıkmış)
-    + kilavuz([294, 180, 240], [322, 180, 240]) + kure(310, 180, 240, 8) + kol(329)                // sağ omuz eklemi ve kol
-    + silindir(260, 180, 264, 6, 6, "a")                                                           // boyun
-    + kutu(235, 174, 288, 4, 12, 12, "a") + kutu(240, 166, 280, 40, 28, 30)                        // sol kulak modülü, baş
-    + kutu(245, 194, 292, 30, 2, 9, "a") + kutu(281, 174, 288, 4, 12, 12, "a")                     // göz bandı, sağ kulak modülü
-    + kutu(258, 178, 318, 4, 4, 14, "a") + kure(260, 180, 337, 3.5)                                // anten
-    + silindir(212, 216, 118, 5, 9, "a") + silindir(310, 148, 124, 5, 9, "a")                      // gevşek motorlar
-    + kutu(204, 150, 172, 5, 5, 5) + kutu(314, 208, 92, 5, 5, 5) + kutu(212, 208, 262, 4, 4, 4, "a") + kutu(306, 150, 286, 4, 4, 4);   // küçük parçalar
+  const cokgen = (ns, s, ek = "") => `<polygon class="${s}"${ek} points="${ns.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ")}"/>`;
+  // Ortadaki model: parçalarına ayrılmış bir akülü matkap. Ekseni x boyunca (ucu öne), y=180, z=Z. Özgün çizimdir.
+  // İç parçalar dönel gövdelerdir (profil + ışık geçişi); gövde iki yarım kabuk olarak öne ve arkaya açılmıştır.
+  const Z = 262, yuzey = (x, r, a) => n(x, 180 + r * Math.cos(a), Z + r * Math.sin(a)), DER = Math.PI / 180;
+  const daire = (x, r) => Array.from({ length: 28 }, (_, i) => yuzey(x, r, i * Math.PI / 14));
+  let gecisler = "", gNo = 0;
+  const donel = (c, ...pr) => {   // pr: [x, yarıçap] noktaları, arkadan öne
+    const [x0] = pr[0], [x1, r1] = pr[pr.length - 1], R = Math.max(...pr.map((q) => q[1])), [cx, cy] = n((x0 + x1) / 2, 180, Z), id = `izg${gNo++}`;
+    gecisler += `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${(cx + 0.61 * R).toFixed(1)}" y1="${(cy - 1.06 * R).toFixed(1)}" x2="${(cx - 0.61 * R).toFixed(1)}" y2="${(cy + 1.06 * R).toFixed(1)}"><stop offset=".05" class="st-${c}1"/><stop offset=".5" class="st-${c}2"/><stop offset="1" class="st-${c}3"/></linearGradient>`;
+    return cokgen(zarf(pr.flatMap(([x, r]) => daire(x, r))), "iz-s", ` fill="url(#${id})"`) + cokgen(daire(x1, r1), `iz-s iz-${c}3`);
+  };
+  const yol = (ns, s) => `<polyline class="${s}" points="${ns.map((q) => q.map((v) => v.toFixed(1)).join(",")).join(" ")}"/>`;
+  const halka = (x, r, s = "iz-oluk") => yol(Array.from({ length: 13 }, (_, i) => yuzey(x, r, (-45 + i * 15) * DER)), s);          // görünen yarıdaki oluk
+  const boyuna = (x0, x1, r0, r1, adim, s = "iz-oluk") => { let c = ""; for (let a = -36; a <= 126; a += adim) c += yol([yuzey(x0, r0, a * DER), yuzey(x1, r1, a * DER)], s); return c; };
+  const sarmal = (x0, x1, r, faz) => { const ns = []; for (let x = x0; x <= x1; x += 1.5) { const a = ((x - x0) * 14 + faz) % 360; if (a > 315 || a < 135) ns.push(yuzey(x, r, a * DER)); else if (ns.length) ns.push(null); }
+    return ns.reduce((g, q) => (q ? g[g.length - 1].push(q) : g.push([]), g), [[]]).filter((g) => g.length > 1).map((g) => yol(g, "iz-oluk")).join(""); };
+  const mat = (y) => `matrix(.866 .5 0 -1 ${(332 - 0.866 * y).toFixed(1)} ${(120 + 0.5 * y - Z).toFixed(1)})`;   // (x, eksenden yükseklik) düzlemini sahneye taşır
+  const kalip = (d, y0, y1, yan, yuzS, detay = "") => { let c = ""; for (let y = y0; y < y1; y += 2) c += `<path d="${d}" transform="${mat(y)}" class="${yan}"/>`; return c + `<g transform="${mat(y1)}"><path d="${d}" class="iz-s ${yuzS}"/>${detay}</g>`; };
+  const vida = (x, y, z) => { const [cx, cy] = n(x, y, z); return `<path class="iz-s iz-n2" d="M${(cx - 3).toFixed(1)} ${(cy - 6).toFixed(1)}v6a3 1.7 0 0 0 6 0v-6z"/><ellipse class="iz-s iz-n1" cx="${cx.toFixed(1)}" cy="${(cy - 6).toFixed(1)}" rx="3" ry="1.7"/>`; };
+  const KABUK = "M150 27H286Q300 27 300 16V-14Q300 -27 288 -27H264L258 -44L250 -96L266 -104V-116H196V-104L212 -98L222 -27H150Q138 -27 138 -15V15Q138 27 150 27Z";
+  const bos = [[146, 18], [290, 14], [150, -18], [258, -34], [206, -110], [256, -110]];
+  const disYuz = `<path class="iz-a2" d="M226 -38H253L247 -92H219Z"/>${[0, 1, 2, 3, 4, 5, 6].map((i) => `<path class="iz-acik" d="M${224 - i * 0.9} ${-46 - i * 7}H${250 - i * 0.9}"/>`).join("")}`
+    + [0, 1, 2, 3].map((i) => `<path class="iz-oluk" d="M${152 + i * 8} -13L${158 + i * 8} 13"/>`).join("") + `<rect class="iz-a2" x="198" y="-9" width="62" height="18" rx="4"/><path class="iz-acik" d="M206 0H252"/>`
+    + bos.map(([x, w]) => `<circle class="iz-vida" cx="${x}" cy="${w}" r="2.8"/>`).join("");
+  const icYuz = `<path class="iz-oluk" d="M150 20H286Q293 20 293 13V-12Q293 -20 286 -20H229L221 -92H249L256 -44"/>${[176, 214, 262].map((x) => `<path class="iz-oluk" d="M${x} -20V20"/>`).join("")}`
+    + bos.map(([x, w]) => `<circle class="iz-s iz-z3" cx="${x}" cy="${w}" r="4.5"/><circle class="iz-vida" cx="${x}" cy="${w}" r="1.8"/>`).join("");
+  const model = kutu(218, 138, 0, 84, 84, 10) + kilavuz([241, 180, 10], [241, 180, Z - 170])                  // kaide (sergi)
+    + kalip(KABUK, 108, 116, "iz-z3", "iz-z1", icYuz)                                                          // arka yarım kabuk (içi görünür)
+    + kilavuz([146, 116, Z + 18], [146, 250, Z + 18]) + kilavuz([290, 116, Z + 14], [290, 250, Z + 14]) + kilavuz([206, 116, Z - 110], [206, 250, Z - 110])
+    + kutu(206, 156, Z - 170, 70, 48, 30, "a") + [0, 1, 2, 3].map((i) => kutu(218 + i * 11, 204, Z - 158, 6, 1.5, 5)).join("") + kutu(226, 168, Z - 140, 36, 24, 4)   // batarya, şarj ışıkları, kızak
+    + kutu(230, 170, Z - 118, 32, 20, 8)                                                                       // bağlantı soketi
+    + `<g transform="${mat(180)}"><path class="iz-kablo" d="M240 -66C236 -84 250 -92 244 -110"/><path class="iz-kablo k2" d="M250 -66C258 -84 242 -94 252 -110"/></g>`   // kablolar
+    + kutu(234, 173, Z - 66, 22, 14, 22)                                                                       // anahtar
+    + kalip("M257 -28C274 -32 277 -50 268 -64H259Z", 175, 185, "iz-a3", "iz-a2")                               // tetik
+    + kilavuz([116, 180, Z], [476, 180, Z])
+    + donel("a", [118, 8], [126, 8]) + donel("n", [130, 21], [136, 21]) + boyuna(130, 136, 21, 21, 18)         // arka yatak, fan
+    + donel("n", [146, 22], [150, 25], [206, 25], [210, 22]) + halka(158, 25.2) + halka(198, 25.2) + halka(178, 25.6, "iz-bant") + boyuna(163, 172, 25.2, 25.2, 27) + boyuna(184, 193, 25.2, 25.2, 27)   // motor
+    + donel("n", [212, 3.5], [224, 3.5]) + donel("a", [222, 8.5], [231, 8.5]) + boyuna(222, 231, 8.6, 8.6, 18, "iz-acik")   // mil, pinyon
+    + donel("n", [243, 22], [251, 22]) + boyuna(243, 251, 22.2, 22.2, 9)                                       // halka dişli
+    + donel("a", [262, 19], [265, 22], [288, 22], [292, 19]) + halka(270, 22.2, "iz-acik") + halka(284, 22.2, "iz-acik")   // dişli kutusu
+    + donel("n", [302, 13], [309, 13])                                                                         // rulman
+    + donel("n", [318, 21], [320, 23], [334, 23], [338, 20]) + boyuna(322, 333, 23.2, 23.2, 12) + halka(336, 21.6, "iz-bant")   // tork bileziği
+    + donel("a", [350, 13], [354, 19], [372, 19], [384, 12], [388, 11]) + boyuna(356, 371, 19.2, 19.2, 10, "iz-acik") + halka(377, 16.4, "iz-acik")   // mandren
+    + donel("n", [394, 8], [404, 4])                                                                           // çeneler
+    + donel("n", [410, 3.2], [462, 3.2]) + sarmal(412, 461, 3.3, 0) + sarmal(412, 461, 3.3, 180) + donel("a", [462, 3.2], [470, 0.5])   // matkap ucu
+    + kalip(KABUK, 250, 258, "iz-n3", "iz-n1", disYuz)                                                         // ön yarım kabuk (dışı görünür)
+    + vida(146, 214, Z + 22) + vida(290, 214, Z + 18) + vida(206, 214, Z - 106) + vida(146, 150, Z + 22) + vida(290, 150, Z + 18);
   const X7 = [40, 113, 187, 260, 333, 407, 480], X6 = X7.filter((x) => x !== 260), X4 = [40, 113, 407, 480];
   const DOLU = new Set(["113,180", "480,180", "187,255", "333,105"]);
   const ogeler = [[30, X7], [105, X6], [180, X4], [255, X6], [330, X7]].flatMap(([y, xs]) => xs.map((x) => ({ d: x + y, s: kisi(x, y, DOLU.has(`${x},${y}`) ? "dolu" : "bos") })));   // 30 yer
   ogeler.push({ d: 441, s: model }, { d: 578, s: kisi(372, 206, "hoca") });
   ogeler.sort((a, b) => a.d - b.d);
-  return `<svg class="izo izo-buyuk" viewBox="0 -12 802 597" role="img" aria-label="YUVerse laboratuvarı: ortada parçalarına ayrılmış bir robot modeli, yanında anlatan oturum yöneticisi, çevresinde VR gözlüklü katılımcılar ve 30 gözlük yeri">${kutu(0, 0, -12, 520, 360, 12, "z")}${ogeler.map((o) => o.s).join("")}</svg>`;
+  return `<svg class="izo izo-buyuk" viewBox="0 -62 802 647" role="img" aria-label="YUVerse laboratuvarı: ortada parçalarına ayrılmış bir matkap modeli, yanında anlatan oturum yöneticisi, çevresinde VR gözlüklü katılımcılar ve 30 gözlük yeri"><defs>${gecisler}</defs>${kutu(0, 0, -12, 520, 360, 12, "z")}${ogeler.map((o) => o.s).join("")}<polyline class="iz-etiket-cizgi" points="480,92 524,50"/><polyline class="iz-etiket-cizgi" points="476,347 476,330"/><polyline class="iz-etiket-cizgi" points="266,208 236,186"/></svg>`;
 })();
 const ADIMLAR = [
   [izo.yukle, "Yükle", "Panele gir, .glb dosyanı ve proje bilgilerini gönder."],
@@ -200,8 +226,8 @@ function girisEkrani() {
     <ol class="tn-adimlar">${ADIMLAR.map(([c, a, m], i) => `<li>${c}<div><span class="tn-no">${i + 1}. ADIM</span><b>${a}</b><p>${m}</p></div></li>`).join("")}</ol></section>
   <section class="tn-sahne"><h2 class="tn-baslik">YUVerse'te 30 gözlük, tek model</h2>
     <p class="tn-alt">Onaylanan model laboratuvarda aynı anda 30 VR gözlüğünde görünür. Oturum yöneticisi modeli parçalarına ayırarak anlatabilir.</p>
-    ${yuverseSahne}
-    <ul class="tn-anahtar"><li><i class="an-hoca"></i>Oturum yöneticisi: modeli parçalarına ayırır</li><li><i class="an-kisi"></i>Gözlüklü katılımcı</li><li><i class="an-bos"></i>Boş yerler: aynı anda 30 gözlüğe kadar</li></ul></section>
+    <div class="tn-cizim">${yuverseSahne}<span class="tn-etiket" style="left:65.3%;top:17.3%">3D model</span><span class="tn-etiket ustte" style="left:59.35%;top:59%">Yönetici</span><span class="tn-etiket sola" style="left:29.4%;top:38.3%">İzleyici <b>×30</b></span></div>
+    <ul class="tn-anahtar"><li><i class="an-hoca"></i>Oturum yöneticisi: modeli parçalarına ayırır</li><li><i class="an-kisi"></i>İzleyici: gözlüklü katılımcı</li><li><i class="an-bos"></i>Boş yerler: aynı anda 30 gözlüğe kadar</li></ul></section>
   <section><h2 class="tn-baslik">Roller</h2>
     <div class="tn-roller">${ROL_ACIKLAMA.map(([a, m]) => `<div class="kutu"><b>${a}</b><p>${m}</p></div>`).join("")}</div>
     <p class="yardim" style="margin:16px 0 0">Yeni hesap öğrenci olarak başlar ve yönetici onayını bekler. Rolleri sistem yöneticisi atar.</p></section>
