@@ -179,6 +179,14 @@ dialog.kutu h2{font:700 20px/1.2 var(--font);margin:0}
 dialog.kutu p{margin:0}
 dialog.kutu .dugmeler{justify-content:flex-end}
 
+/* Bölümler */
+.bolum-liste{display:grid;gap:var(--s-3)}
+.bolum-duzen{display:flex;gap:var(--s-2);align-items:flex-end;flex-wrap:wrap}
+.bolum-duzen .alan{flex:1 1 220px;margin:0}
+.bolum-tasi{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap}
+.bolum-tasi .girdi{flex:0 1 240px;min-width:0}
+.bolum-suz{max-width:340px;margin-bottom:var(--s-4)}
+
 /* 3B ön izleme */
 .izleyici-kutu{display:grid;gap:var(--s-2)}
 .izleyici-kutu:empty{display:none}
