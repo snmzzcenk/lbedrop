@@ -837,13 +837,14 @@ async function kullanicilarSayfasi(sayfa) {
 
 // ---------- Ayarlar: Drive bağlantısı (yalnız yönetici) ----------
 async function ayarlarSayfasi(sayfa) {
-  const ust = baslik("Ayarlar", "Google Drive bağlantısı, giriş kodu e-postası ve bölümler.");
+  const ust = baslik("Ayarlar", "Google Drive bağlantısı, giriş kodu e-postası, lab bilgisayarı ve bölümler.");
   kabuk(sayfa, ust + '<p class="yardim">Yükleniyor…</p>');
   const icerik = () => document.getElementById("icerik");
-  let d, p, bolumler;
-  try { [d, p, bolumler] = await Promise.all([api("/drive/durum"), api("/posta/durum"), api("/bolumler").then((v) => v.bolumler)]); } catch (x) { if (simdikiSayfa().id === sayfa.id) icerik().innerHTML = ust + hataKutusu(x); return; }
+  let d, p, bolumler, lab;
+  try { [d, p, bolumler, lab] = await Promise.all([api("/drive/durum"), api("/posta/durum"), api("/bolumler").then((v) => v.bolumler), api("/indirme/ayar")]); } catch (x) { if (simdikiSayfa().id === sayfa.id) icerik().innerHTML = ust + hataKutusu(x); return; }
   if (simdikiSayfa().id !== sayfa.id) return;
-  icerik().innerHTML = `${ust}<div id="hata"></div>
+  const bildirim = S.bildirim; S.bildirim = null;
+  icerik().innerHTML = `${ust}<div id="hata">${bildirimHtml(bildirim)}</div>
     <div class="kutu dar">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Google Drive</h2>${d.bagli ? rozet("onaylandi", "Bağlı", I.ok) : rozet("bekliyor", "Bağlı değil", I.bekle)}</div>
       <p class="yardim">${d.bagli ? "Yüklenen modeller bağlı hesabın Drive'ındaki LBE_Drop klasörüne gider." : "Drive bağlanmadan kimse model yükleyemez. Bağlayan hesabın Drive'ında LBE_Drop klasörü açılır; yer o hesabın kotasından düşer."}</p>
@@ -863,6 +864,16 @@ async function ayarlarSayfasi(sayfa) {
       </div>
       <p class="yardim">Yalnız e-posta gönderme izni istenir; sunucu posta kutusunu okuyamaz. Gönderilen kodlar o hesabın "Gönderilmiş" klasöründe görünür. Gmail günde yaklaşık 500 e-postaya izin verir; sunucu günde 250 kodla sınırlar.</p>
     </div>
+    <form class="kutu dar" id="lab-form" style="margin-top:var(--s-5)" novalidate>
+      <h2>Lab bilgisayarı</h2>
+      <p class="yardim">Onaylanan modeller Drive'dan lab bilgisayarında bu klasöre iner. Oyun da aynı klasörü okumalı: klasörü değiştirirsen LBE AddPlay'i <code>-LibraryDir</code> ile aynı klasöre yönelt.</p>
+      <label class="alan">İndirme klasörü<input class="girdi" name="klasor" value="${esc(lab.klasor)}" maxlength="200" placeholder="${esc(lab.varsayilan_klasor)}" spellcheck="false"><span class="ek">Boş bırakılırsa ${esc(lab.varsayilan_klasor)} kullanılır. Modeller bunun içindeki <code>models</code> klasörüne yazılır.</span></label>
+      <label class="alan">Bilgisayarın IP adresi<input class="girdi" name="ip" value="${esc(lab.ip)}" maxlength="15" placeholder="ör. 192.168.1.20" inputmode="decimal" spellcheck="false"><span class="ek">Yazılırsa indirici yalnız bu adresi taşıyan bilgisayarda indirir. Boş bırakılırsa indiricinin çalıştığı her bilgisayar indirir.</span></label>
+      <button class="btn btn-tam">Kaydet</button>
+      <p class="yardim">${lab.son
+        ? `İndirici en son ${esc(tarihYaz(lab.son.tarih))} görüldü (${esc(lab.son.kim)}). Klasör: ${esc(lab.son.klasor)} · IP: ${esc(lab.son.ipler.join(", ") || "yok")}${lab.son.etkin ? "" : " · <b>IP adresi uyuşmadığı için indirme yapmıyor.</b>"}`
+        : "İndirici henüz bağlanmadı. Lab bilgisayarında çalıştırılınca kullandığı klasör ve IP adresi burada görünür."}</p>
+    </form>
     <div class="kutu dar" style="margin-top:var(--s-5)">
       <h2>Bölümler</h2>
       <p class="yardim">Akademisyen Profil'den bölümünü seçer; Kullanıcılar sayfasından onun yerine sen de seçebilirsin. Ona gönderilen model o bölüme düşer ve lab bilgisayarında bölümün klasörüne iner.</p>
@@ -878,6 +889,11 @@ async function ayarlarSayfasi(sayfa) {
   const hata = document.getElementById("hata");
   const bolumIs = async (yol, yontem, govde) => {
     try { await api(yol, { yontem, govde }); ayarlarSayfasi(sayfa); } catch (x) { hata.innerHTML = hataKutusu(x); hata.scrollIntoView({ block: "center" }); }
+  };
+  document.getElementById("lab-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try { await api("/indirme/ayar", { yontem: "PUT", govde: { klasor: e.target.klasor.value.trim(), ip: e.target.ip.value.trim() } }); S.bildirim = { tur: "ok", yazi: "Lab bilgisayarı ayarı kaydedildi; indirici bir sonraki turda uygular." }; ayarlarSayfasi(sayfa); }
+    catch (x) { hata.innerHTML = hataKutusu(x); hata.scrollIntoView({ block: "center" }); }
   };
   document.getElementById("bolum-ekle").onsubmit = (e) => { e.preventDefault(); const ad = e.target.ad.value.trim(); if (!ad) { e.target.ad.focus(); return; } bolumIs("/bolumler", "POST", { ad }); };
   icerik().querySelectorAll("[data-bolum-duzen]").forEach((f) => { f.onsubmit = (e) => { e.preventDefault(); bolumIs("/bolumler/" + f.dataset.bolumDuzen, "PUT", { ad: f.ad.value.trim() }); }; });
