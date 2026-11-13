@@ -41,6 +41,8 @@ const yuklemeRozeti = (a) => a === "onaylandi" ? rozet("onaylandi", "Onaylandı"
 const hesapRozeti = (d) => d === "onayli" ? rozet("onaylandi", "Onaylandı", I.ok) : d === "reddedildi" ? rozet("reddedildi", "Reddedildi", I.red) : rozet("bekliyor", "Onay bekliyor", I.bekle);
 const bildirimHtml = (b) => b ? `<div class="bildirim ${b.tur}" role="${b.tur === "bad" ? "alert" : "status"}">${(b.tur === "ok" ? I.ok : b.tur === "bad" ? I.red : I.bekle).replace("<svg ", '<svg class="simge" ')}<span>${b.kalin ? `<b>${esc(b.kalin)}</b> ` : ""}${esc(b.yazi)}</span></div>` : "";
 const logo = (sinif = "") => `<img class="logo-acik ${sinif}" src="marka/logo/lbe-drop_logo_yatay-siyah_oneri-v1.svg" alt="LBE Drop"><img class="logo-koyu ${sinif}" src="marka/logo/lbe-drop_logo_yatay-beyaz_oneri-v1.svg" alt="">`;
+// Sol üstteki logo: tıklanınca her zaman ana sayfa (tanıtım) açılır.
+const logoBag = (sinif = "") => `<a class="logo-bag" href="#anasayfa" aria-label="LBE Drop ana sayfa">${logo(sinif)}</a>`;
 
 class ApiHata extends Error { constructor(kod, mesaj) { super(mesaj); this.kod = kod; } }
 async function api(yol, { yontem = "GET", govde } = {}) {
@@ -320,7 +322,8 @@ const ROL_ACIKLAMA = [
 ];
 
 function girisEkrani() {
-  if (S.kodAdimi) return kodEkrani();
+  const girisli = !!(S.token && S.ben);
+  if (S.kodAdimi && !girisli) return kodEkrani();
   const kodlu = S.kodGiris, kip = kodlu && S.girisKipi ? S.girisKipi : "giris";   // giris | kayit | unuttum
   const epostaAlani = `<label class="alan">E-posta<input class="girdi" name="eposta" type="email" inputmode="email" autocomplete="username" placeholder="ad.soyad@ornek.edu.tr" maxlength="200" value="${esc(S.sonEposta || "")}"><span class="alan-hata" id="eposta-hata" hidden></span></label>`;
   const kutuIci = kip === "giris" ? `
@@ -344,11 +347,15 @@ function girisEkrani() {
       <button class="btn btn-birincil btn-tam" id="kod-iste">Kod gönder</button>
     </form>
     <div class="baglantilar"><button type="button" class="baglanti" data-kip="giris">Giriş ekranına dön</button></div>`;
+  const panel = "#" + SAYFALAR[0].id;
+  const girisliKutu = `<div><h2>Hoş geldin${S.ben && S.ben.ad ? ", " + esc(S.ben.ad.split(" ")[0]) : ""}</h2><p class="yardim" style="margin:6px 0 0">Giriş yaptın. Model yüklemek ve yüklemelerini görmek için panele geç.</p></div>
+    <a class="btn btn-birincil btn-tam" href="${panel}">Panele git</a>`;
+  document.title = "LBE Drop";
   kok.innerHTML = `<div class="tanitim">
-  <header class="tn-ust">${logo("logo")}<a class="btn btn-kucuk" href="#giris-kutu">Giriş yap</a></header>
+  <header class="tn-ust">${logoBag("logo")}<a class="btn btn-kucuk" href="${girisli ? panel : "#giris-kutu"}">${girisli ? "Panele git" : "Giriş yap"}</a></header>
   <section class="tn-kahraman">
   <div><h1>3B modelini yükle, LBE AddPlay'de gör</h1><p class="tn-alt">LBE Drop, Yaşar Üniversitesi YUVerse laboratuvarının model yükleme aracıdır. Modelin iki onaydan geçer ve laboratuvardaki VR oyununda gösterilir.</p></div>
-  <div class="kutu" id="giris-kutu">${kutuIci}
+  <div class="kutu" id="giris-kutu">${girisli ? girisliKutu : kutuIci}
   </div></section>
   <section><h2 class="tn-baslik">Nasıl çalışır</h2>
     <ol class="tn-adimlar">${ADIMLAR.map(([c, a, m], i) => `<li>${c}<div><span class="tn-no">${i + 1}. ADIM</span><b>${a}</b><p>${m}</p></div></li>`).join("")}</ol></section>
@@ -361,6 +368,7 @@ function girisEkrani() {
     <p class="yardim" style="margin:16px 0 0">Yeni hesap öğrenci olarak başlar ve yönetici onayını bekler. Rolleri sistem yöneticisi atar.</p></section>
   <footer class="yardim"><a href="gizlilik.html">Gizlilik</a></footer>
   </div>`;
+  if (girisli) return;
   S.bildirim = null;
   const kutu = document.getElementById("giris-kutu"), hata = document.getElementById("eposta-hata");
   const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; kutu.querySelector("[name=eposta]").classList.add("hatali"); };
@@ -397,7 +405,7 @@ function girisEkrani() {
 function kodEkrani() {
   const k = S.kodAdimi;
   kok.innerHTML = `<div class="orta"><div class="kutu">
-    ${logo("logo")}
+    ${logoBag("logo")}
     <div><h1>Kodu yaz</h1><p class="yardim" style="margin:6px 0 0"><b>${esc(k.eposta)}</b> adresine 6 haneli bir kod gönderdik. Kod ${k.dakika} dakika geçerli. Gelmediyse spam klasörüne bak.</p></div>
     ${bildirimHtml(S.bildirim)}
     <form id="kod-form" novalidate>
@@ -450,7 +458,7 @@ function kodEkrani() {
 }
 function ilkGirisEkrani() {
   kok.innerHTML = `<div class="orta"><div class="kutu">
-    ${logo("logo")}
+    ${logoBag("logo")}
     <div><h1>Adını yaz</h1><p class="yardim" style="margin:6px 0 0">Yüklediğin modellerde bu ad görünür.</p></div>
     <div id="hata"></div>
     <form id="form" novalidate>
@@ -471,7 +479,7 @@ function ilkGirisEkrani() {
 function bekliyorEkrani() {
   const red = S.ben.durum === "reddedildi";
   kok.innerHTML = `<div class="orta"><div class="kutu" style="justify-items:start">
-    ${logo("logo")}
+    ${logoBag("logo")}
     ${hesapRozeti(S.ben.durum)}
     <div><h1>${red ? "Hesabın onaylanmadı" : "Hesabın onay bekliyor"}</h1><p class="yardim" style="margin:6px 0 0">${red ? "Yanlışlık olduğunu düşünüyorsan yöneticiye başvur." : "Yönetici hesabını onaylayınca model yükleyebilirsin."}</p></div>
     <div class="kisi-satiri" style="width:100%"><span class="avatar-b">${esc(basHarf(S.ben.ad))}</span><span><b>${esc(S.ben.ad)}</b><span class="yardim">${esc(S.ben.eposta)}</span></span><span></span></div>
@@ -504,12 +512,12 @@ function kabuk(sayfa, icerik) {
   const bag = (s, kisa) => `<a href="#${s.id}"${s.id === sayfa.id ? ' aria-current="page"' : ""}>${kisa ? s.simge + esc(s.kisa || s.ad) : esc(s.ad)}</a>`;
   kok.innerHTML = `<div class="panel">
     <aside class="yan">
-      ${logo().replace(/<img /g, '<img style="height:40px;align-self:flex-start" ')}
+      ${logoBag().replace(/<img /g, '<img style="height:40px;align-self:flex-start" ')}
       <nav aria-label="Panel menüsü">${gorunenSayfalar().map((s) => bag(s)).join("")}</nav>
       <p class="rol-notu">${esc(ROL_NOTU[S.ben.rol])}</p>
     </aside>
     <div class="sutun">
-      <header class="ust-bar">${logo("mobil-logo")}<span class="yardim">LBE AddPlay için model paneli</span>
+      <header class="ust-bar">${logoBag("mobil-logo")}<span class="yardim">LBE AddPlay için model paneli</span>
         <span class="kisi"><span class="avatar">${esc(basHarf(S.ben.ad))}</span><span class="ad">${esc(S.ben.ad)}</span> <span class="rol">${esc(ROL_AD[S.ben.rol])}</span></span></header>
       <main class="icerik" id="icerik">${icerik}</main>
     </div>
@@ -925,13 +933,25 @@ async function ayarlarSayfasi(sayfa) {
 const CIZ = { yukle: yukleSayfasi, yuklemelerim: yuklemelerimSayfasi, onay: onaySayfasi, profil: profilSayfasi, kullanicilar: kullanicilarSayfasi, ayarlar: ayarlarSayfasi };
 function ciz() {
   if (!API) { kok.innerHTML = '<p class="yukleniyor">Sunucu adresi ayarlanmamış (ayar.js).</p>'; return; }
-  if (!S.token || !S.ben) return girisEkrani();
+  // #anasayfa: sol üstteki logonun gittiği yer. Girişliyken de tanıtım sayfası açılır ("Panele git" ile dönülür).
+  const anasayfa = location.hash === "#anasayfa", girisli = !!(S.token && S.ben);
+  if (anasayfa && girisli && S.girissizdi) { S.girissizdi = false; history.replaceState(null, "", location.pathname + location.search); return ciz(); }   // ana sayfadan giriş yapan panele düşer
+  if (!girisli) S.girissizdi = true; else if (!anasayfa) S.girissizdi = false;
+  if (anasayfa) return girisEkrani();
+  if (!girisli) return girisEkrani();
   if (!S.ben.ad) return ilkGirisEkrani();      // öğrenci no girişte sorulmaz; isteyen Profil'den ekler
   if (S.ben.durum !== "onayli") return bekliyorEkrani();
   const sayfa = simdikiSayfa();
   CIZ[sayfa.id](sayfa);
 }
 window.addEventListener("hashchange", ciz);
+// Logoya tıklanınca ana sayfa baştan açılır: yarım kalmış kayıt ya da kod adımı bırakılır, sayfa en üste gelir.
+document.addEventListener("click", (e) => {
+  if (!e.target.closest || !e.target.closest("a.logo-bag")) return;
+  if (!(S.token && S.ben)) { S.kodAdimi = null; S.girisKipi = null; }
+  if (location.hash === "#anasayfa") { e.preventDefault(); ciz(); }
+  setTimeout(() => window.scrollTo(0, 0), 0);
+});
 window.addEventListener("beforeunload", (e) => { if (S.yukleme) e.preventDefault(); });
 
 (async function basla() {

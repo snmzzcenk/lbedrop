@@ -100,6 +100,9 @@ input.kod-girdi{font:600 22px/1 var(--font);letter-spacing:.3em;text-align:cente
 .tanitim{max-width:1120px;margin:0 auto;padding:var(--s-5) var(--s-4) var(--s-8);display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s-8)}
 .tn-ust{display:flex;justify-content:space-between;align-items:center;gap:var(--s-4)}
 .tn-ust .logo{height:40px}
+.logo-bag{display:inline-flex;align-items:center;align-self:flex-start;text-decoration:none;border-radius:var(--r-sm)}
+.logo-bag img{display:block}
+.orta .logo-bag{justify-self:start}
 .tn-kahraman{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:var(--s-7);align-items:center}
 .tn-kahraman h1{font:700 44px/1.1 var(--font);letter-spacing:-.02em;margin:0 0 var(--s-4);text-wrap:balance}
 .tn-alt{font:400 18px/1.5 var(--font);color:var(--muted);margin:0;max-width:46ch}
