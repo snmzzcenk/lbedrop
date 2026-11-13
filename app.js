@@ -95,12 +95,48 @@ async function cikis() {
 }
 
 // ---------- ekranlar: giriş, ilk giriş, onay bekliyor ----------
+// ---------- Tanıtım (giriş yapmamış ziyaretçinin gördüğü ana sayfa) ----------
+// İzometrik çizimler: her adım küçük bir sahne. Renkler panel.css'teki --iz-* değişkenlerinden gelir (açık ve koyu tema).
+const izo = (() => {
+  const N = (x, y, z) => `${(100 + (x - y) * 0.866).toFixed(1)},${(70 + (x + y) * 0.5 - z).toFixed(1)}`;
+  const yuz = (n, s) => `<polygon class="${s}" points="${n.map((p) => N(...p)).join(" ")}"/>`;
+  const kutu = (x, y, z, w, d, h, r = "n") =>
+    yuz([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]], `iz-${r}1`) +
+    yuz([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]], `iz-${r}2`) +
+    yuz([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]], `iz-${r}3`);
+  const tik = (x, z, y) => `<polyline class="iz-ok" points="${[[x, y, z + 9], [x + 7, y, z], [x + 20, y, z + 18]].map((p) => N(...p)).join(" ")}"/>`;
+  const sahne = (ic) => `<svg class="izo" viewBox="0 -18 200 150" aria-hidden="true">${kutu(-45, -45, -8, 90, 90, 8, "z")}${ic}</svg>`;
+  return {
+    yukle: sahne(kutu(-28, -16, 0, 44, 32, 3) + kutu(-28, -16, 3, 3, 32, 28) + kutu(14, 16, 12, 16, 16, 16, "a")),
+    sakla: sahne(kutu(-34, -24, 0, 30, 38, 12) + kutu(-34, -24, 14, 30, 38, 12) + kutu(-34, -24, 28, 30, 38, 12) + kutu(10, -2, 0, 26, 30, 14) + kutu(17, 7, 14, 12, 12, 12, "a")),
+    onOnay: sahne(kutu(-26, -8, 0, 46, 4, 50) + tik(-13, 18, -3.8) + kutu(16, 16, 0, 14, 14, 14, "a")),
+    sonOnay: sahne(kutu(-32, -8, 0, 58, 4, 50) + tik(-25, 18, -3.8) + tik(-1, 18, -3.8) + kutu(18, 16, 0, 14, 14, 14, "a")),
+    sahnede: sahne(kutu(8, -34, 0, 14, 26, 32) + kutu(-22, -14, 0, 6, 6, 10) + kutu(-36, -13, 10, 34, 4, 26) + kutu(8, 8, 0, 24, 24, 6) + kutu(13, 13, 6, 14, 14, 14, "a")),
+  };
+})();
+const ADIMLAR = [
+  [izo.yukle, "Yükle", "Panele gir, .glb dosyanı ve proje bilgilerini gönder."],
+  [izo.sakla, "Saklanır", "Dosya laboratuvarın Drive'ına, kayıt sunucuya yazılır."],
+  [izo.onOnay, "Akademisyen ön onayı", "Seçtiğin akademisyen modeli inceler; ön onay verir ya da notla reddeder."],
+  [izo.sonOnay, "YUVerse son onayı", "YUVerse sorumlusu son kararı verir."],
+  [izo.sahnede, "Sahnede", "Model lab bilgisayarına iner; LBE AddPlay'de ad soyadın, proje adın ve yükleme zamanınla görünür."],
+];
+const ROL_ACIKLAMA = [
+  ["Öğrenci", "Model yükler, yüklemelerinin aşamasını ve ret notunu görür."],
+  ["Akademisyen", "Öğrenciyle aynı. Ayrıca kendisini seçen yüklemelere ön onay verir."],
+  ["YUVerse sorumlusu", "Bütün yüklemeleri görür, son onayı verir, modeli lab bilgisayarına indirtir."],
+  ["Sistem yöneticisi", "Hepsini yapar. Ayrıca hesapları onaylar, rolleri atar, Drive ve e-postayı bağlar."],
+];
+
 function girisEkrani() {
   if (S.kodAdimi) return kodEkrani();
   const kodlu = S.kodGiris;
-  kok.innerHTML = `<div class="orta"><div class="kutu">
-    ${logo("logo")}
-    <div><h1>Giriş yap</h1><p class="yardim" style="margin:6px 0 0">3B modelini LBE AddPlay'e göndermek için giriş yap.</p></div>
+  kok.innerHTML = `<div class="tanitim">
+  <header class="tn-ust">${logo("logo")}<a class="btn btn-kucuk" href="#giris-kutu">Giriş yap</a></header>
+  <section class="tn-kahraman">
+  <div><h1>3B modelini yükle, LBE AddPlay'de gör</h1><p class="tn-alt">LBE Drop, Yaşar Üniversitesi YUVerse laboratuvarının model yükleme aracıdır. Modelin iki onaydan geçer ve laboratuvardaki VR oyununda gösterilir.</p></div>
+  <div class="kutu" id="giris-kutu">
+    <div><h2>Giriş yap</h2><p class="yardim" style="margin:6px 0 0">3B modelini LBE AddPlay'e göndermek için giriş yap.</p></div>
     ${bildirimHtml(S.bildirim)}
     ${kodlu ? `<form id="eposta-form" novalidate>
       <label class="alan">E-posta<input class="girdi" name="eposta" type="email" inputmode="email" autocomplete="email" placeholder="ad.soyad@ornek.edu.tr" maxlength="200" value="${esc(S.sonEposta || "")}"><span class="alan-hata" id="eposta-hata" hidden></span></label>
@@ -110,8 +146,14 @@ function girisEkrani() {
     <div class="ya-da"><span>ya da</span></div>` : ""}
     <button type="button" class="btn ${kodlu ? "" : "btn-birincil"} btn-tam" id="giris">Google ile giriş yap</button>
     <p class="yardim" style="margin:0">Hesabın ilk girişte onay bekler; yönetici onaylayınca model yükleyebilirsin.</p>
-    <p class="yardim" style="margin:0"><a href="gizlilik.html">Gizlilik</a></p>
-  </div></div>`;
+  </div></section>
+  <section><h2 class="tn-baslik">Nasıl çalışır</h2>
+    <ol class="tn-adimlar">${ADIMLAR.map(([c, a, m], i) => `<li>${c}<div><span class="tn-no">${i + 1}. ADIM</span><b>${a}</b><p>${m}</p></div></li>`).join("")}</ol></section>
+  <section><h2 class="tn-baslik">Roller</h2>
+    <div class="tn-roller">${ROL_ACIKLAMA.map(([a, m]) => `<div class="kutu"><b>${a}</b><p>${m}</p></div>`).join("")}</div>
+    <p class="yardim" style="margin:16px 0 0">Yeni hesap öğrenci olarak başlar ve yönetici onayını bekler. Rolleri sistem yöneticisi atar.</p></section>
+  <footer class="yardim"><a href="gizlilik.html">Gizlilik</a></footer>
+  </div>`;
   S.bildirim = null;
   document.getElementById("giris").onclick = (e) => { e.currentTarget.disabled = true; girisBaslat(); };
   const form = document.getElementById("eposta-form");
