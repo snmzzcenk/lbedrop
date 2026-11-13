@@ -114,7 +114,7 @@ const izo = (() => {
     sahnede: sahne(kutu(8, -34, 0, 14, 26, 32) + kutu(-22, -14, 0, 6, 6, 10) + kutu(-36, -13, 10, 34, 4, 26) + kutu(8, 8, 0, 24, 24, 6) + kutu(13, 13, 6, 14, 14, 14, "a")),
   };
 })();
-// YUVerse sahnesi: 30 gözlük yeri (4'ü dolu, kalanı soluk), ortada parçalarına ayrılmış model, yanında anlatan hoca.
+// YUVerse sahnesi: 30 gözlük yeri (4'ü dolu, kalanı soluk), ortada parçalarına ayrılmış robot modeli, yanında anlatan hoca.
 const yuverseSahne = (() => {
   const n = (x, y, z = 0) => [332 + (x - y) * 0.866, 120 + (x + y) * 0.5 - z];
   const N = (x, y, z) => n(x, y, z).map((v) => v.toFixed(1)).join(",");
@@ -129,23 +129,26 @@ const yuverseSahne = (() => {
     return `<g class="iz-kisi ${tur}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><ellipse class="iz-golge" rx="13" ry="6"/><rect class="iz-beden" x="-8" y="-36" width="16" height="34" rx="8"/>${
       tur === "hoca" ? '<path class="iz-kol" d="M-5 -27 L-27 -47"/><circle class="iz-beden" cx="-28" cy="-48" r="4"/>' : ""}<circle class="iz-beden" cy="-45" r="8"/><rect class="iz-gozluk" x="-9" y="-49" width="18" height="7" rx="3"/></g>`;
   };
-  // Ortadaki model: katlarına ve parçalarına ayrılmış bir kule. Parçalar alttan üste, arkadan öne çizilir.
-  const model = kilavuz([260, 180, 10], [260, 180, 278]) + kutu(218, 138, 0, 84, 84, 10)                                     // kaide (sergi)
-    + kutu(225, 145, 28, 70, 70, 8, "a")                                                                                        // temel
-    + kutu(232, 152, 54, 8, 8, 36) + kutu(232, 200, 54, 8, 8, 36) + kutu(280, 152, 54, 8, 8, 36)                                // kolonlar (arka, sol, sağ)
-    + kutu(246, 166, 54, 28, 28, 36, "a") + kutu(280, 200, 54, 8, 8, 36)                                                        // çekirdek, ön kolon
-    + kilavuz([260, 208, 70], [260, 236, 70]) + kutu(248, 236, 58, 24, 9, 24, "a")                                              // giriş (öne çıkmış)
-    + kutu(230, 150, 110, 60, 60, 6, "a")                                                                                       // döşeme
-    + kutu(238, 158, 136, 44, 44, 30) + kutu(244, 202, 146, 32, 2, 10, "a") + kutu(282, 164, 146, 2, 32, 10, "a")               // üst kat ve pencere bantları
-    + kilavuz([284, 180, 145], [314, 180, 145]) + kutu(314, 168, 142, 10, 24, 6, "a")                                           // balkon (yana çıkmış)
-    + kutu(232, 152, 188, 56, 56, 6, "a") + kutu(245, 165, 212, 30, 30, 14)                                                     // çatı, çatı katı
-    + kutu(257, 177, 242, 6, 6, 28, "a") + kutu(255, 175, 274, 10, 10, 4);                                                      // anten
+  // Ortadaki model: parçalarına ayrılmış bir robot (yüzü öne, +y yönüne bakar). Parçalar alttan üste, arkadan öne çizilir.
+  const model = kilavuz([260, 180, 10], [260, 180, 250]) + kutu(218, 138, 0, 84, 84, 10)                                      // kaide (sergi)
+    + kutu(236, 166, 26, 18, 32, 8, "a") + kutu(266, 166, 26, 18, 32, 8, "a")                                                   // ayaklar
+    + kutu(239, 172, 46, 12, 14, 34) + kutu(269, 172, 46, 12, 14, 34)                                                           // bacaklar
+    + kutu(234, 168, 92, 52, 22, 10, "a")                                                                                       // kalça
+    + kutu(201, 173, 106, 10, 12, 8, "a") + kutu(200, 172, 118, 12, 14, 40) + kutu(198, 170, 160, 16, 18, 8, "a")               // sol kol (yana çıkmış): el, kol, omuz
+    + kilavuz([212, 179, 150], [230, 179, 150])
+    + kutu(230, 164, 116, 60, 30, 46)                                                                                           // gövde
+    + kilavuz([260, 194, 140], [260, 214, 140]) + kutu(240, 214, 128, 40, 3, 24, "a")                                           // göğüs paneli (öne çıkmış)
+    + kilavuz([290, 179, 150], [308, 179, 150])
+    + kutu(309, 173, 106, 10, 12, 8, "a") + kutu(308, 172, 118, 12, 14, 40) + kutu(306, 170, 160, 16, 18, 8, "a")               // sağ kol (yana çıkmış)
+    + kutu(253, 173, 172, 14, 12, 6, "a")                                                                                       // boyun
+    + kutu(238, 164, 192, 44, 30, 30) + kutu(244, 194, 204, 32, 2, 9, "a")                                                      // baş ve göz bandı
+    + kutu(258, 177, 232, 4, 4, 16, "a") + kutu(255, 174, 250, 10, 10, 5);                                                      // anten
   const X7 = [40, 113, 187, 260, 333, 407, 480], X6 = X7.filter((x) => x !== 260), X4 = [40, 113, 407, 480];
   const DOLU = new Set(["113,180", "407,180", "187,255", "333,105"]);
   const ogeler = [[30, X7], [105, X6], [180, X4], [255, X6], [330, X7]].flatMap(([y, xs]) => xs.map((x) => ({ d: x + y, s: kisi(x, y, DOLU.has(`${x},${y}`) ? "dolu" : "bos") })));   // 30 yer
   ogeler.push({ d: 441, s: model }, { d: 540, s: kisi(350, 190, "hoca") });
   ogeler.sort((a, b) => a.d - b.d);
-  return `<svg class="izo izo-buyuk" viewBox="0 40 802 545" role="img" aria-label="YUVerse laboratuvarı: ortada parçalarına ayrılmış bir model, yanında anlatan hoca, çevresinde VR gözlüklü katılımcılar ve 30 gözlük yeri">${kutu(0, 0, -12, 520, 360, 12, "z")}${ogeler.map((o) => o.s).join("")}</svg>`;
+  return `<svg class="izo izo-buyuk" viewBox="0 40 802 545" role="img" aria-label="YUVerse laboratuvarı: ortada parçalarına ayrılmış bir robot modeli, yanında anlatan hoca, çevresinde VR gözlüklü katılımcılar ve 30 gözlük yeri">${kutu(0, 0, -12, 520, 360, 12, "z")}${ogeler.map((o) => o.s).join("")}</svg>`;
 })();
 const ADIMLAR = [
   [izo.yukle, "Yükle", "Panele gir, .glb dosyanı ve proje bilgilerini gönder."],
