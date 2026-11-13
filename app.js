@@ -114,6 +114,30 @@ const izo = (() => {
     sahnede: sahne(kutu(8, -34, 0, 14, 26, 32) + kutu(-22, -14, 0, 6, 6, 10) + kutu(-36, -13, 10, 34, 4, 26) + kutu(8, 8, 0, 24, 24, 6) + kutu(13, 13, 6, 14, 14, 14, "a")),
   };
 })();
+// YUVerse sahnesi: 30 gözlük yeri (4'ü dolu, kalanı soluk), ortada parçalarına ayrılmış model, yanında anlatan hoca.
+const yuverseSahne = (() => {
+  const n = (x, y, z = 0) => [332 + (x - y) * 0.866, 120 + (x + y) * 0.5 - z];
+  const N = (x, y, z) => n(x, y, z).map((v) => v.toFixed(1)).join(",");
+  const yuz = (k, s) => `<polygon class="${s}" points="${k.map((p) => N(...p)).join(" ")}"/>`;
+  const kutu = (x, y, z, w, d, h, r = "n") =>
+    yuz([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]], `iz-${r}1`) +
+    yuz([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]], `iz-${r}2`) +
+    yuz([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]], `iz-${r}3`);
+  const kilavuz = (a, b) => `<polyline class="iz-kilavuz" points="${N(...a)} ${N(...b)}"/>`;
+  const kisi = (x, y, tur) => {
+    const [sx, sy] = n(x, y);
+    return `<g class="iz-kisi ${tur}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><ellipse class="iz-golge" rx="13" ry="6"/><rect class="iz-beden" x="-8" y="-36" width="16" height="34" rx="8"/>${
+      tur === "hoca" ? '<path class="iz-kol" d="M-5 -27 L-27 -47"/><circle class="iz-beden" cx="-28" cy="-48" r="4"/>' : ""}<circle class="iz-beden" cy="-45" r="8"/><rect class="iz-gozluk" x="-9" y="-49" width="18" height="7" rx="3"/></g>`;
+  };
+  const model = kilavuz([260, 180, 10], [260, 180, 232]) + kutu(218, 138, 0, 84, 84, 10) + kutu(227, 147, 30, 66, 66, 10, "a") + kutu(236, 156, 62, 48, 48, 36)
+    + kilavuz([260, 204, 80], [260, 232, 80]) + kutu(248, 232, 70, 24, 9, 21, "a") + kutu(240, 160, 124, 40, 40, 30) + kutu(234, 154, 182, 52, 52, 7, "a") + kutu(254, 174, 210, 12, 12, 20, "a");
+  const X7 = [40, 113, 187, 260, 333, 407, 480], X6 = X7.filter((x) => x !== 260), X4 = [40, 113, 407, 480];
+  const DOLU = new Set(["113,180", "407,180", "187,255", "333,105"]);
+  const ogeler = [[30, X7], [105, X6], [180, X4], [255, X6], [330, X7]].flatMap(([y, xs]) => xs.map((x) => ({ d: x + y, s: kisi(x, y, DOLU.has(`${x},${y}`) ? "dolu" : "bos") })));   // 30 yer
+  ogeler.push({ d: 441, s: model }, { d: 540, s: kisi(350, 190, "hoca") });
+  ogeler.sort((a, b) => a.d - b.d);
+  return `<svg class="izo izo-buyuk" viewBox="0 40 802 545" role="img" aria-label="YUVerse laboratuvarı: ortada parçalarına ayrılmış bir model, yanında anlatan hoca, çevresinde VR gözlüklü katılımcılar ve 30 gözlük yeri">${kutu(0, 0, -12, 520, 360, 12, "z")}${ogeler.map((o) => o.s).join("")}</svg>`;
+})();
 const ADIMLAR = [
   [izo.yukle, "Yükle", "Panele gir, .glb dosyanı ve proje bilgilerini gönder."],
   [izo.sakla, "Saklanır", "Dosya laboratuvarın Drive'ına, kayıt sunucuya yazılır."],
@@ -149,6 +173,10 @@ function girisEkrani() {
   </div></section>
   <section><h2 class="tn-baslik">Nasıl çalışır</h2>
     <ol class="tn-adimlar">${ADIMLAR.map(([c, a, m], i) => `<li>${c}<div><span class="tn-no">${i + 1}. ADIM</span><b>${a}</b><p>${m}</p></div></li>`).join("")}</ol></section>
+  <section class="tn-sahne"><h2 class="tn-baslik">YUVerse'te 30 gözlük, tek model</h2>
+    <p class="tn-alt">Onaylanan model laboratuvarda aynı anda 30 VR gözlüğünde görünür. Hoca modeli parçalarına ayırarak anlatabilir.</p>
+    ${yuverseSahne}
+    <ul class="tn-anahtar"><li><i class="an-hoca"></i>Hoca: modeli parçalarına ayırır</li><li><i class="an-kisi"></i>Gözlüklü katılımcı</li><li><i class="an-bos"></i>Boş yerler: aynı anda 30 gözlüğe kadar</li></ul></section>
   <section><h2 class="tn-baslik">Roller</h2>
     <div class="tn-roller">${ROL_ACIKLAMA.map(([a, m]) => `<div class="kutu"><b>${a}</b><p>${m}</p></div>`).join("")}</div>
     <p class="yardim" style="margin:16px 0 0">Yeni hesap öğrenci olarak başlar ve yönetici onayını bekler. Rolleri sistem yöneticisi atar.</p></section>
