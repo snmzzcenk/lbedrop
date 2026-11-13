@@ -108,7 +108,7 @@ input.kod-girdi{font:600 22px/1 var(--font);letter-spacing:.3em;text-align:cente
 .tn-roller .kutu{gap:6px;padding:20px}
 .tn-roller b{font:600 16px/1.3 var(--font)}
 .izo{display:block;width:100%;max-width:220px;height:auto}
-.izo polygon{stroke:var(--iz-cizgi);stroke-width:.6;stroke-linejoin:round}
+.izo polygon,.iz-s{stroke:var(--iz-cizgi);stroke-width:.6;stroke-linejoin:round}
 .iz-z1{fill:var(--iz-z1)}.iz-z2{fill:var(--iz-z2)}.iz-z3{fill:var(--iz-z3)}
 .iz-n1{fill:var(--iz-n1)}.iz-n2{fill:var(--iz-n2)}.iz-n3{fill:var(--iz-n3)}
 .iz-a1{fill:var(--iz-a1)}.iz-a2{fill:var(--iz-a2)}.iz-a3{fill:var(--iz-a3)}
