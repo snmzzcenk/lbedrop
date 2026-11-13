@@ -55,6 +55,53 @@ async function api(yol, { yontem = "GET", govde } = {}) {
 }
 function oturumuUnut() { S.token = null; S.ben = null; depo.yaz("lbe-token", null); }
 
+// ---------- 3B ön izleme (kutuphane/model-viewer.min.js; ilk kullanımda yüklenir) ----------
+function izleyiciYukle() {
+  return S.izleyici || (S.izleyici = new Promise((tamam, olmadi) => {
+    const s = document.createElement("script");
+    s.type = "module"; s.src = "kutuphane/model-viewer.min.js";
+    s.onload = tamam;
+    s.onerror = () => { S.izleyici = null; s.remove(); olmadi(new Error("3B ön izleme yüklenemedi; sayfayı yenileyip yeniden dene.")); };
+    document.head.append(s);
+  }));
+}
+// Verilen kutuya modeli koyar. kaynak: Blob ya da File. Dönen işlev kaynağı bırakır.
+async function izleyiciKur(kutu, kaynak) {
+  kutu.innerHTML = '<p class="yardim">Ön izleme hazırlanıyor…</p>';
+  const adres = URL.createObjectURL(kaynak), birak = () => URL.revokeObjectURL(adres);
+  try { await izleyiciYukle(); } catch (x) { birak(); kutu.innerHTML = `<p class="yardim">${esc(x.message)}</p>`; return () => {}; }
+  const m = document.createElement("model-viewer");
+  m.className = "izleyici"; m.src = adres;
+  for (const [ad, deger] of [["camera-controls", ""], ["auto-rotate", ""], ["shadow-intensity", "0.6"], ["interaction-prompt", "none"], ["alt", "Modelin 3B ön izlemesi"]]) m.setAttribute(ad, deger);
+  m.addEventListener("error", () => { kutu.innerHTML = '<p class="yardim">Model açılamadı. Dosya bozuk olabilir ya da desteklenmeyen sıkıştırma (Draco, meshopt, KTX2) içeriyor olabilir.</p>'; });
+  kutu.innerHTML = ""; kutu.append(m);
+  const ipucu = document.createElement("p");
+  ipucu.className = "yardim"; ipucu.textContent = "Sürükleyerek döndür, kaydırarak yaklaştır.";
+  kutu.append(ipucu);
+  return birak;
+}
+// Yüklenmiş bir modeli pencerede gösterir; dosya sunucudan oturumla alınır.
+async function onIzle(id, ad) {
+  const p = document.getElementById("onizleme"), govde = document.getElementById("onizleme-govde");
+  document.getElementById("onizleme-baslik").textContent = ad || "Ön izleme";
+  govde.innerHTML = '<p class="yardim">Model indiriliyor…</p>';
+  let birak = () => {}, kapandi = false;
+  p.onclose = () => { kapandi = true; birak(); govde.innerHTML = ""; };
+  document.getElementById("onizleme-kapat").onclick = () => p.close();
+  p.showModal();
+  try {
+    const y = await fetch(API + `/yuklemeler/${encodeURIComponent(id)}/dosya`, { headers: { Authorization: "Bearer " + S.token } });
+    if (y.status === 401) { p.close(); oturumuUnut(); ciz(); return; }
+    if (!y.ok) throw new Error((await y.json().catch(() => ({}))).error || "Model alınamadı.");
+    const dosya = await y.blob();
+    if (kapandi) return;
+    birak = await izleyiciKur(govde, dosya);
+    if (kapandi) birak();
+  } catch (x) { if (!kapandi) govde.innerHTML = `<p class="yardim">${esc(x instanceof TypeError ? "Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene." : x.message)}</p>`; }
+}
+const onIzleDugmesi = (m) => `<button type="button" class="btn btn-kucuk" data-onizle="${esc(m.id)}" data-ad="${esc(m.model_adi)}">Ön izle</button>`;
+const onIzleBagla = (kap) => kap.querySelectorAll("[data-onizle]").forEach((b) => { b.onclick = () => onIzle(b.dataset.onizle, b.dataset.ad); });
+
 // Onay diyaloğu: Promise<boolean>
 function sor(baslik, metin, dugme) {
   const d = document.getElementById("soru");
@@ -205,22 +252,34 @@ const ROL_ACIKLAMA = [
 
 function girisEkrani() {
   if (S.kodAdimi) return kodEkrani();
-  const kodlu = S.kodGiris;
+  const kodlu = S.kodGiris, kip = kodlu && S.girisKipi ? S.girisKipi : "giris";   // giris | kayit | unuttum
+  const epostaAlani = `<label class="alan">E-posta<input class="girdi" name="eposta" type="email" inputmode="email" autocomplete="username" placeholder="ad.soyad@ornek.edu.tr" maxlength="200" value="${esc(S.sonEposta || "")}"><span class="alan-hata" id="eposta-hata" hidden></span></label>`;
+  const kutuIci = kip === "giris" ? `
+    <div><h2>Giriş yap</h2><p class="yardim" style="margin:6px 0 0">3B modelini LBE AddPlay'e göndermek için giriş yap.</p></div>
+    ${bildirimHtml(S.bildirim)}
+    <form id="sifre-form" novalidate>
+      ${epostaAlani}
+      <label class="alan">Şifre<input class="girdi" name="sifre" type="password" autocomplete="current-password" maxlength="200"></label>
+      <button class="btn btn-birincil btn-tam" id="sifre-gir">Giriş yap</button>
+    </form>
+    ${kodlu ? `<div class="baglantilar"><button type="button" class="baglanti" data-kip="kayit">Hesabın yok mu? Kayıt ol</button><button type="button" class="baglanti" data-kip="unuttum">Şifremi unuttum</button></div>` : ""}
+    <div class="ya-da"><span>ya da</span></div>
+    <button type="button" class="btn btn-tam" id="giris">Google ile giriş yap</button>
+    <p class="yardim" style="margin:0">Hesabın ilk girişte onay bekler; yönetici onaylayınca model yükleyebilirsin.</p>` : `
+    <div><h2>${kip === "kayit" ? "Kayıt ol" : "Şifreni yenile"}</h2><p class="yardim" style="margin:6px 0 0">${kip === "kayit"
+      ? "Adresine 6 haneli bir kod göndeririz. Kodu yazıp şifreni belirlersin; sonraki girişlerde yalnız şifren sorulur."
+      : "Adresine 6 haneli bir kod göndeririz. Kodu yazıp yeni şifreni belirlersin."}</p></div>
+    ${bildirimHtml(S.bildirim)}
+    <form id="eposta-form" novalidate>
+      ${epostaAlani}
+      <button class="btn btn-birincil btn-tam" id="kod-iste">Kod gönder</button>
+    </form>
+    <div class="baglantilar"><button type="button" class="baglanti" data-kip="giris">Giriş ekranına dön</button></div>`;
   kok.innerHTML = `<div class="tanitim">
   <header class="tn-ust">${logo("logo")}<a class="btn btn-kucuk" href="#giris-kutu">Giriş yap</a></header>
   <section class="tn-kahraman">
   <div><h1>3B modelini yükle, LBE AddPlay'de gör</h1><p class="tn-alt">LBE Drop, Yaşar Üniversitesi YUVerse laboratuvarının model yükleme aracıdır. Modelin iki onaydan geçer ve laboratuvardaki VR oyununda gösterilir.</p></div>
-  <div class="kutu" id="giris-kutu">
-    <div><h2>Giriş yap</h2><p class="yardim" style="margin:6px 0 0">3B modelini LBE AddPlay'e göndermek için giriş yap.</p></div>
-    ${bildirimHtml(S.bildirim)}
-    ${kodlu ? `<form id="eposta-form" novalidate>
-      <label class="alan">E-posta<input class="girdi" name="eposta" type="email" inputmode="email" autocomplete="email" placeholder="ad.soyad@ornek.edu.tr" maxlength="200" value="${esc(S.sonEposta || "")}"><span class="alan-hata" id="eposta-hata" hidden></span></label>
-      <button class="btn btn-birincil btn-tam" id="kod-iste">Kod gönder</button>
-      <p class="yardim" style="margin:0">Adresine 6 haneli bir giriş kodu göndeririz. Şifre gerekmez.</p>
-    </form>
-    <div class="ya-da"><span>ya da</span></div>` : ""}
-    <button type="button" class="btn ${kodlu ? "" : "btn-birincil"} btn-tam" id="giris">Google ile giriş yap</button>
-    <p class="yardim" style="margin:0">Hesabın ilk girişte onay bekler; yönetici onaylayınca model yükleyebilirsin.</p>
+  <div class="kutu" id="giris-kutu">${kutuIci}
   </div></section>
   <section><h2 class="tn-baslik">Nasıl çalışır</h2>
     <ol class="tn-adimlar">${ADIMLAR.map(([c, a, m], i) => `<li>${c}<div><span class="tn-no">${i + 1}. ADIM</span><b>${a}</b><p>${m}</p></div></li>`).join("")}</ol></section>
@@ -234,23 +293,38 @@ function girisEkrani() {
   <footer class="yardim"><a href="gizlilik.html">Gizlilik</a></footer>
   </div>`;
   S.bildirim = null;
-  document.getElementById("giris").onclick = (e) => { e.currentTarget.disabled = true; girisBaslat(); };
-  const form = document.getElementById("eposta-form");
-  if (!form) return;
-  form.onsubmit = async (e) => {
+  const kutu = document.getElementById("giris-kutu"), hata = document.getElementById("eposta-hata");
+  const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; kutu.querySelector("[name=eposta]").classList.add("hatali"); };
+  const epostaOku = (form) => { const e = form.eposta.value.trim().toLowerCase(); S.sonEposta = e; if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) return e; goster("E-posta adresini kontrol et."); return null; };
+  kutu.querySelectorAll("[data-kip]").forEach((b) => { b.onclick = () => { const f = kutu.querySelector("form"); if (f) S.sonEposta = f.eposta.value.trim(); S.girisKipi = b.dataset.kip; ciz(); document.getElementById("giris-kutu").querySelector("[name=eposta]").focus(); }; });
+  const google = document.getElementById("giris");
+  if (google) google.onclick = (e) => { e.currentTarget.disabled = true; girisBaslat(); };
+  const sifreForm = document.getElementById("sifre-form");
+  if (sifreForm) sifreForm.onsubmit = async (e) => {
     e.preventDefault();
-    const eposta = form.eposta.value.trim().toLowerCase(), hata = document.getElementById("eposta-hata"), dugme = document.getElementById("kod-iste");
-    const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; form.eposta.classList.add("hatali"); };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(eposta)) return goster("E-posta adresini kontrol et.");
+    const eposta = epostaOku(sifreForm), dugme = document.getElementById("sifre-gir");
+    if (!eposta) return;
+    if (!sifreForm.sifre.value) { sifreForm.sifre.classList.add("hatali"); sifreForm.sifre.focus(); return; }
+    dugme.disabled = true; dugme.textContent = "Giriş yapılıyor…";
+    try {
+      const v = await api("/giris/sifre", { yontem: "POST", govde: { eposta, sifre: sifreForm.sifre.value } });
+      S.token = v.token; S.ben = v.ben; depo.yaz("lbe-token", v.token); ciz();
+    } catch (x) { dugme.disabled = false; dugme.textContent = "Giriş yap"; sifreForm.sifre.value = ""; goster(x.message); }
+  };
+  const form = document.getElementById("eposta-form");
+  if (form) form.onsubmit = async (e) => {
+    e.preventDefault();
+    const eposta = epostaOku(form), dugme = document.getElementById("kod-iste");
+    if (!eposta) return;
     dugme.disabled = true; dugme.textContent = "Kod gönderiliyor…";
     try {
       const v = await api("/giris/kod/iste", { yontem: "POST", govde: { eposta } });
-      S.sonEposta = eposta; S.kodAdimi = { eposta, yeniden: Date.now() + (v.bekle || 60) * 1000, dakika: v.gecerli_dakika || 10 };
+      S.kodAdimi = { eposta, kip, yeniden: Date.now() + (v.bekle || 60) * 1000, dakika: v.gecerli_dakika || 10 };
       ciz();
     } catch (x) { dugme.disabled = false; dugme.textContent = "Kod gönder"; goster(x.message); }
   };
 }
-// E-posta koduyla girişin ikinci adımı: gelen 6 haneli kod yazılır.
+// Kayıt ve şifre yenilemenin ikinci adımı: gelen 6 haneli kod yazılır ve şifre belirlenir.
 function kodEkrani() {
   const k = S.kodAdimi;
   kok.innerHTML = `<div class="orta"><div class="kutu">
@@ -258,14 +332,21 @@ function kodEkrani() {
     <div><h1>Kodu yaz</h1><p class="yardim" style="margin:6px 0 0"><b>${esc(k.eposta)}</b> adresine 6 haneli bir kod gönderdik. Kod ${k.dakika} dakika geçerli. Gelmediyse spam klasörüne bak.</p></div>
     ${bildirimHtml(S.bildirim)}
     <form id="kod-form" novalidate>
-      <label class="alan">Giriş kodu<input class="girdi kod-girdi sayisal" name="kod" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="000000"><span class="alan-hata" id="kod-hata" hidden></span></label>
-      <button class="btn btn-birincil btn-tam" id="kod-gir">Giriş yap</button>
+      <input type="email" name="eposta" value="${esc(k.eposta)}" autocomplete="username" hidden>
+      <label class="alan">Kod<input class="girdi kod-girdi sayisal" name="kod" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="000000"><span class="alan-hata" id="kod-hata" hidden></span></label>
+      <label class="alan">${k.kip === "unuttum" ? "Yeni şifre" : "Şifre"}<input class="girdi" name="sifre" type="password" autocomplete="new-password" maxlength="200"><span class="ek">En az 8 karakter.</span></label>
+      <label class="alan">Şifre (yeniden)<input class="girdi" name="sifre2" type="password" autocomplete="new-password" maxlength="200"><span class="alan-hata" id="sifre-hata" hidden></span></label>
+      <button class="btn btn-birincil btn-tam" id="kod-gir">${k.kip === "unuttum" ? "Şifreyi yenile" : "Kaydı tamamla"}</button>
     </form>
     <div class="dugmeler"><button type="button" class="btn btn-kucuk" id="yeni-kod" disabled>Yeni kod iste</button><button type="button" class="btn btn-kucuk" id="adres-degis">Adresi değiştir</button></div>
   </div></div>`;
   S.bildirim = null;
   const form = document.getElementById("kod-form"), hata = document.getElementById("kod-hata"), yeni = document.getElementById("yeni-kod"), gir = document.getElementById("kod-gir");
-  const goster = (m) => { hata.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); hata.hidden = false; form.kod.classList.add("hatali"); };
+  const sifreHata = document.getElementById("sifre-hata"), girYazi = gir.textContent;
+  const goster = (m, sifre) => {
+    hata.hidden = sifreHata.hidden = true; form.kod.classList.remove("hatali"); form.sifre.classList.remove("hatali"); form.sifre2.classList.remove("hatali");
+    const yer = sifre ? sifreHata : hata; yer.innerHTML = I.red.replace("<svg ", '<svg class="simge" ') + esc(m); yer.hidden = false; (sifre || form.kod).classList.add("hatali"); (sifre || form.kod).focus();
+  };
   const say = () => {
     if (!yeni.isConnected || S.kodAdimi !== k) return;
     const kalan = Math.ceil((k.yeniden - Date.now()) / 1000);
@@ -279,11 +360,14 @@ function kodEkrani() {
     e.preventDefault();
     const kod = form.kod.value.trim();
     if (!/^\d{6}$/.test(kod)) return goster("6 haneli kodu yaz.");
+    if (form.sifre.value.length < 8) return goster("Şifre en az 8 karakter olmalı.", form.sifre);
+    if (form.sifre.value !== form.sifre2.value) return goster("İki şifre aynı değil.", form.sifre2);
     gir.disabled = true; gir.textContent = "Kod doğrulanıyor…";
     try {
-      const v = await api("/giris/kod/dogrula", { yontem: "POST", govde: { eposta: k.eposta, kod } });
-      S.token = v.token; S.ben = v.ben; S.kodAdimi = null; depo.yaz("lbe-token", v.token); ciz();
-    } catch (x) { gir.disabled = false; gir.textContent = "Giriş yap"; goster(x.message); }
+      const v = await api("/giris/kod/dogrula", { yontem: "POST", govde: { eposta: k.eposta, kod, yeni_sifre: form.sifre.value } });
+      S.token = v.token; S.ben = v.ben; S.kodAdimi = null; S.girisKipi = null; depo.yaz("lbe-token", v.token);
+      S.bildirim = { tur: "ok", yazi: k.kip === "unuttum" ? "Şifren yenilendi." : "Kaydın tamamlandı." }; ciz();
+    } catch (x) { gir.disabled = false; gir.textContent = girYazi; goster(x.message, /ifre/.test(x.message) && !/kod/i.test(x.message) ? form.sifre : null); }
   };
   yeni.onclick = async () => {
     yeni.disabled = true;
@@ -407,7 +491,7 @@ function yukleSayfasi(sayfa) {
       </form>
     </div>`);
   S.bildirim = null;
-  let dosya = null;
+  let dosya = null, onizleBirak = () => {};
   // İlgili akademisyen: sistemde akademisyen varsa seçmek zorunlu; ön onayı o verir.
   let akademisyenVar = false;
   api("/akademisyenler").then((v) => {
@@ -426,8 +510,10 @@ function yukleSayfasi(sayfa) {
     const sorun = !/\.glb$/i.test(f.name) ? "Yalnız .glb dosyası yüklenir." : f.size > MAKS_BOYUT ? `Dosya 50 MB'tan büyük (${boyutYaz(f.size)}).` : f.size < 12 ? "Dosya boş görünüyor." : null;
     if (sorun) { dosya = null; secili.hidden = true; birak.hidden = false; birak.classList.add("hatali"); hata.innerHTML = bildirimHtml({ tur: "bad", kalin: f.name + ":", yazi: sorun }); return; }
     dosya = f; birak.hidden = true; secili.hidden = false;
-    secili.innerHTML = `<div class="dosya"><span class="kucuk-resim">3B</span><span><b>${esc(f.name)}</b><span class="yardim sayisal">${boyutYaz(f.size)}</span></span><button type="button" class="btn btn-kucuk" id="degistir">Değiştir</button></div>`;
+    secili.innerHTML = `<div class="dosya"><span class="kucuk-resim">3B</span><span><b>${esc(f.name)}</b><span class="yardim sayisal">${boyutYaz(f.size)}</span></span><button type="button" class="btn btn-kucuk" id="degistir">Değiştir</button></div><div id="yukle-onizle" class="izleyici-kutu"></div>`;
     document.getElementById("degistir").onclick = () => girdi.click();
+    onizleBirak(); onizleBirak = () => {};
+    izleyiciKur(document.getElementById("yukle-onizle"), f).then((b) => { if (dosya === f && document.getElementById("yukle-onizle")) onizleBirak = b; else b(); });
     if (!form.model_adi.value) form.model_adi.value = f.name.replace(/\.glb$/i, "").replace(/[-_]+/g, " ").slice(0, 80);
   };
   birak.onclick = () => girdi.click();
@@ -511,8 +597,9 @@ async function yuklemelerimSayfasi(sayfa) {
       <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.asama)}</div>
       <span class="yardim sayisal">${[m.yukleyen_ad, m.akademisyen_ad && "Akademisyen: " + m.akademisyen_ad, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
       ${m.durum === "reddedildi" && m.ret_notu ? `<div class="ek-not"><b>Ret notu:</b> ${esc(m.ret_notu)}</div>` : ""}
+      <div class="dugmeler">${onIzleDugmesi(m)}</div>
     </div>`).join("")}</div>` : '<div class="kutu dar"><p class="yardim">Henüz yüklediğin model yok.</p></div>'));
-  function bitir(html) { if (simdikiSayfa().id === sayfa.id) document.getElementById("icerik").innerHTML = html; }
+  function bitir(html) { if (simdikiSayfa().id !== sayfa.id) return; const ic = document.getElementById("icerik"); ic.innerHTML = html; onIzleBagla(ic); }
 }
 
 // ---------- Profil ----------
@@ -524,6 +611,17 @@ function profilSayfasi(sayfa) {
       <label class="alan">Ad soyad<input class="girdi" name="ad" value="${esc(S.ben.ad)}" autocomplete="name" maxlength="120"></label>
       <label class="alan">Öğrenci no (isteğe bağlı)<input class="girdi" name="ogrenci_no" inputmode="numeric" value="${esc(S.ben.ogrenci_no)}" maxlength="20"><span class="ek">Oyunda görünmez.</span></label>
       <button class="btn btn-tam">Kaydet</button>
+    </form>
+    <form class="kutu dar" id="sifre-form" novalidate>
+      <b>${S.ben.sifre_var ? "Şifreyi değiştir" : "Şifre belirle"}</b>
+      <input type="email" name="eposta" value="${esc(S.ben.eposta)}" autocomplete="username" hidden>
+      ${S.ben.sifre_var ? '<label class="alan">Şimdiki şifre<input class="girdi" name="eski" type="password" autocomplete="current-password" maxlength="200"></label>'
+        : '<p class="yardim" style="margin:0">Şifre belirlersen Google yerine e-posta ve şifreyle de girebilirsin.</p>'}
+      <label class="alan">Yeni şifre<input class="girdi" name="sifre" type="password" autocomplete="new-password" maxlength="200"><span class="ek">En az 8 karakter.</span></label>
+      <label class="alan">Yeni şifre (yeniden)<input class="girdi" name="sifre2" type="password" autocomplete="new-password" maxlength="200"></label>
+      <div id="sifre-hata"></div>
+      <button class="btn btn-tam">${S.ben.sifre_var ? "Şifreyi değiştir" : "Şifre belirle"}</button>
+      <p class="yardim" style="margin:0">Şifre değişince öbür cihazlardaki oturumların kapanır.</p>
     </form>
     <div class="kutu dar">
       <button type="button" class="btn btn-tam" id="cik">Çıkış yap</button>
@@ -537,6 +635,14 @@ function profilSayfasi(sayfa) {
     const f = new FormData(e.target);
     try { S.ben = (await api("/ben", { yontem: "PUT", govde: { ad: f.get("ad"), ogrenci_no: f.get("ogrenci_no") } })).ben; S.bildirim = { tur: "ok", yazi: "Kaydedildi." }; ciz(); }
     catch (x) { hata.innerHTML = hataKutusu(x); }
+  };
+  document.getElementById("sifre-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, yer = document.getElementById("sifre-hata"), uyar = (m) => { yer.innerHTML = hataKutusu(new Error(m)); };
+    if (f.sifre.value.length < 8) return uyar("Şifre en az 8 karakter olmalı.");
+    if (f.sifre.value !== f.sifre2.value) return uyar("İki şifre aynı değil.");
+    try { S.ben = (await api("/ben/sifre", { yontem: "PUT", govde: { sifre: f.sifre.value, eski: f.eski ? f.eski.value : undefined } })).ben; S.bildirim = { tur: "ok", yazi: "Şifren kaydedildi." }; ciz(); }
+    catch (x) { yer.innerHTML = hataKutusu(x); }
   };
   document.getElementById("cik").onclick = cikis;
   document.getElementById("sil").onclick = async () => {
@@ -557,7 +663,7 @@ async function onaySayfasi(sayfa) {
   catch (x) { if (simdikiSayfa().id === sayfa.id) document.getElementById("icerik").innerHTML = ust + hataKutusu(x); return; }
   if (simdikiSayfa().id !== sayfa.id) return;
   const kart = (m) => {
-    const d = [];
+    const d = [onIzleDugmesi(m)];
     if (m.asama === "akademisyen") d.push(`<button type="button" class="btn btn-birincil btn-kucuk" data-is="on-onay" data-id="${m.id}">${hoca ? "Ön onay ver" : "Hoca adına ön onay ver"}</button>`);
     if (m.asama === "sorumlu" && !hoca) d.push(`<button type="button" class="btn btn-birincil btn-kucuk" data-is="onayla" data-id="${m.id}">Onayla</button>`);
     if (m.asama === "akademisyen" || (m.asama === "sorumlu" && !hoca)) d.push(`<button type="button" class="btn btn-kucuk btn-red" data-ret="${m.id}">Reddet</button>`);
@@ -580,6 +686,7 @@ async function onaySayfasi(sayfa) {
     : bolum("Onayını bekleyenler", sec("sorumlu"), "Onayını bekleyen model yok.") + bolum("Akademisyen ön onayı bekleyenler", sec("akademisyen"), "Akademisyen ön onayı bekleyen model yok.")}
     ${bolum("Onaylananlar", sec("onaylandi"), "Onaylanan model yok.")}${bolum("Reddedilenler", sec("reddedildi"), "Reddedilen model yok.")}</div>`;
   const icerik = document.getElementById("icerik");
+  onIzleBagla(icerik);
   const yap = async (yol, govde, tamam) => {
     try { await api(yol, { yontem: "POST", govde }); S.bildirim = { tur: "ok", yazi: tamam }; }
     catch (x) { S.bildirim = { tur: "bad", yazi: x.message }; }
