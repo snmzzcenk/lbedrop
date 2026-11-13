@@ -7,7 +7,7 @@ const API = String(window.LBE_API || "").replace(/\/$/, "");
 const PANEL_ADRES = location.origin + location.pathname;      // sunucudaki PANEL_ADRESLERI ile birebir aynı olmalı
 const MAKS_BOYUT = 50 * 1024 * 1024;
 const kok = document.getElementById("kok");
-const S = { token: null, ben: null, bildirim: null, yukleme: null };
+const S = { token: null, ben: null, bildirim: null, yukleme: null, resimler: new Map() };
 
 // ---------- yardımcılar ----------
 const esc = (x) => String(x ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -53,7 +53,7 @@ async function api(yol, { yontem = "GET", govde } = {}) {
   if (!y.ok) throw new ApiHata(y.status, v.error || "Beklenmeyen bir hata oluştu.");
   return v;
 }
-function oturumuUnut() { S.token = null; S.ben = null; depo.yaz("lbe-token", null); }
+function oturumuUnut() { S.token = null; S.ben = null; S.resimler.clear(); depo.yaz("lbe-token", null); }
 
 // ---------- 3B ön izleme (kutuphane/model-viewer.min.js; ilk kullanımda yüklenir) ----------
 function izleyiciYukle() {
@@ -66,14 +66,54 @@ function izleyiciYukle() {
   }));
 }
 // Verilen kutuya modeli koyar. kaynak: Blob ya da File. Dönen işlev kaynağı bırakır.
-async function izleyiciKur(kutu, kaynak) {
+// Ön izlemenin görüntüsünü 320×240'a küçültür (WebP; tarayıcı desteklemezse PNG).
+async function kucukResim(m) {
+  const t = document.createElement("canvas"), G = 320, Y = 240, c = t.getContext("2d", { willReadFrequently: true });
+  t.width = G; t.height = Y;
+  // Model henüz çizilmemişse görüntü boş gelir; dolu gelene kadar birkaç kez denenir.
+  for (let deneme = 0, dolu = false; !dolu; deneme++) {
+    if (deneme === 6 || !m.isConnected) return null;
+    await new Promise((s) => setTimeout(s, 350));
+    const b = await createImageBitmap(await m.toBlob({ idealAspect: true })), o = Math.min(G / b.width, Y / b.height);
+    c.clearRect(0, 0, G, Y);
+    c.drawImage(b, (G - b.width * o) / 2, (Y - b.height * o) / 2, b.width * o, b.height * o);
+    const v = c.getImageData(0, 0, G, Y).data;
+    for (let i = 3; i < v.length; i += 16) if (v[i]) { dolu = true; break; }
+  }
+  const r = await new Promise((coz) => t.toBlob(coz, "image/webp", 0.82));
+  return r && r.size <= 200000 ? r : null;
+}
+async function resimGonder(id, resim) {
+  const y = await fetch(API + `/yuklemeler/${encodeURIComponent(id)}/resim`, { method: "PUT", headers: { Authorization: "Bearer " + S.token, "Content-Type": resim.type }, body: resim });
+  if (!y.ok) throw new Error("Resim kaydedilemedi.");
+  S.resimler.delete(id);
+}
+// Listelerdeki küçük resim kutusu; tıklanınca ön izleme açılır. Resmi olan kutular görünür olunca doldurulur.
+const resimKutusu = (m) => `<button type="button" class="yk-resim" data-onizle="${esc(m.id)}" data-ad="${esc(m.model_adi)}" data-resim="${esc(m.id)}"${m.resim ? " data-var" : ""} aria-label="Ön izle: ${esc(m.model_adi)}">3B</button>`;
+function resimAdresi(id) {
+  if (!S.resimler.has(id)) S.resimler.set(id, fetch(API + `/yuklemeler/${encodeURIComponent(id)}/resim`, { headers: { Authorization: "Bearer " + S.token } })
+    .then((y) => { if (!y.ok) throw new Error(); return y.blob(); }).then((b) => URL.createObjectURL(b)).catch(() => { S.resimler.delete(id); return null; }));
+  return S.resimler.get(id);
+}
+async function resimDoldur(k) {
+  const adres = await resimAdresi(k.dataset.resim);
+  if (!adres || !k.isConnected) return;
+  const r = new Image(); r.alt = ""; r.src = adres;
+  k.replaceChildren(r); k.setAttribute("data-var", "");
+}
+function resimleriBagla(kap) {
+  const g = new IntersectionObserver((kayitlar) => kayitlar.forEach((e) => { if (e.isIntersecting) { g.unobserve(e.target); resimDoldur(e.target); } }), { rootMargin: "200px" });
+  kap.querySelectorAll("[data-resim][data-var]").forEach((k) => g.observe(k));
+}
+async function izleyiciKur(kutu, kaynak, resimHazir) {
   kutu.innerHTML = '<p class="yardim">Ön izleme hazırlanıyor…</p>';
   const adres = URL.createObjectURL(kaynak), birak = () => URL.revokeObjectURL(adres);
   try { await izleyiciYukle(); } catch (x) { birak(); kutu.innerHTML = `<p class="yardim">${esc(x.message)}</p>`; return () => {}; }
   const m = document.createElement("model-viewer");
   m.className = "izleyici"; m.src = adres;
-  for (const [ad, deger] of [["camera-controls", ""], ["auto-rotate", ""], ["shadow-intensity", "0.6"], ["interaction-prompt", "none"], ["alt", "Modelin 3B ön izlemesi"]]) m.setAttribute(ad, deger);
+  for (const [ad, deger] of [["loading", "eager"], ["camera-controls", ""], ["auto-rotate", ""], ["shadow-intensity", "0.6"], ["interaction-prompt", "none"], ["alt", "Modelin 3B ön izlemesi"]]) m.setAttribute(ad, deger);
   m.addEventListener("error", () => { kutu.innerHTML = '<p class="yardim">Model açılamadı. Dosya bozuk olabilir ya da desteklenmeyen sıkıştırma (Draco, meshopt, KTX2) içeriyor olabilir.</p>'; });
+  if (resimHazir) m.addEventListener("load", () => { kucukResim(m).then((r) => { if (r) resimHazir(r); }).catch(() => {}); }, { once: true });
   kutu.innerHTML = ""; kutu.append(m);
   const ipucu = document.createElement("p");
   ipucu.className = "yardim"; ipucu.textContent = "Sürükleyerek döndür, kaydırarak yaklaştır.";
@@ -95,12 +135,13 @@ async function onIzle(id, ad) {
     if (!y.ok) throw new Error((await y.json().catch(() => ({}))).error || "Model alınamadı.");
     const dosya = await y.blob();
     if (kapandi) return;
-    birak = await izleyiciKur(govde, dosya);
+    const k = document.querySelector(`[data-resim="${CSS.escape(id)}"]`);
+    birak = await izleyiciKur(govde, dosya, k && !k.hasAttribute("data-var") ? (r) => resimGonder(id, r).then(() => resimDoldur(k)).catch(() => {}) : null);
     if (kapandi) birak();
   } catch (x) { if (!kapandi) govde.innerHTML = `<p class="yardim">${esc(x instanceof TypeError ? "Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene." : x.message)}</p>`; }
 }
 const onIzleDugmesi = (m) => `<button type="button" class="btn btn-kucuk" data-onizle="${esc(m.id)}" data-ad="${esc(m.model_adi)}">Ön izle</button>`;
-const onIzleBagla = (kap) => kap.querySelectorAll("[data-onizle]").forEach((b) => { b.onclick = () => onIzle(b.dataset.onizle, b.dataset.ad); });
+const onIzleBagla = (kap) => { kap.querySelectorAll("[data-onizle]").forEach((b) => { b.onclick = () => onIzle(b.dataset.onizle, b.dataset.ad); }); resimleriBagla(kap); };
 
 // Onay diyaloğu: Promise<boolean>
 function sor(baslik, metin, dugme) {
@@ -491,7 +532,7 @@ function yukleSayfasi(sayfa) {
       </form>
     </div>`);
   S.bildirim = null;
-  let dosya = null, onizleBirak = () => {};
+  let dosya = null, resim = null, onizleBirak = () => {};
   // İlgili akademisyen: sistemde akademisyen varsa seçmek zorunlu; ön onayı o verir.
   let akademisyenVar = false;
   api("/akademisyenler").then((v) => {
@@ -508,12 +549,13 @@ function yukleSayfasi(sayfa) {
     hata.innerHTML = ""; birak.classList.remove("hatali");
     if (!f) return;
     const sorun = !/\.glb$/i.test(f.name) ? "Yalnız .glb dosyası yüklenir." : f.size > MAKS_BOYUT ? `Dosya 50 MB'tan büyük (${boyutYaz(f.size)}).` : f.size < 12 ? "Dosya boş görünüyor." : null;
+    resim = null;
     if (sorun) { dosya = null; secili.hidden = true; birak.hidden = false; birak.classList.add("hatali"); hata.innerHTML = bildirimHtml({ tur: "bad", kalin: f.name + ":", yazi: sorun }); return; }
     dosya = f; birak.hidden = true; secili.hidden = false;
     secili.innerHTML = `<div class="dosya"><span class="kucuk-resim">3B</span><span><b>${esc(f.name)}</b><span class="yardim sayisal">${boyutYaz(f.size)}</span></span><button type="button" class="btn btn-kucuk" id="degistir">Değiştir</button></div><div id="yukle-onizle" class="izleyici-kutu"></div>`;
     document.getElementById("degistir").onclick = () => girdi.click();
     onizleBirak(); onizleBirak = () => {};
-    izleyiciKur(document.getElementById("yukle-onizle"), f).then((b) => { if (dosya === f && document.getElementById("yukle-onizle")) onizleBirak = b; else b(); });
+    izleyiciKur(document.getElementById("yukle-onizle"), f, (r) => { if (dosya === f) resim = r; }).then((b) => { if (dosya === f && document.getElementById("yukle-onizle")) onizleBirak = b; else b(); });
     if (!form.model_adi.value) form.model_adi.value = f.name.replace(/\.glb$/i, "").replace(/[-_]+/g, " ").slice(0, 80);
   };
   birak.onclick = () => girdi.click();
@@ -532,7 +574,7 @@ function yukleSayfasi(sayfa) {
     if (akademisyenVar) { document.getElementById("akademisyen-hata").hidden = !!akademisyen; form.akademisyen_id.classList.toggle("hatali", !akademisyen); }
     if (!ad || !kisi || !dosya || (akademisyenVar && !akademisyen)) return;
     depo.yaz("lbe-ders", ders); if (akademisyen) depo.yaz("lbe-akademisyen", akademisyen);
-    yuklemeBaslat(dosya, ad, ders, kisi, akademisyen);
+    yuklemeBaslat(dosya, ad, ders, kisi, akademisyen, resim);
   };
   yukleSayfasi.sec = sec;      // sürükle-bırak dışında dosya vermek için (deneme)
 }
@@ -548,7 +590,7 @@ function yukleniyorCiz(sayfa) {
     </div>`);
   document.getElementById("vazgec").onclick = () => { y.iptal = true; if (y.xhr) y.xhr.abort(); };
 }
-async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd, akademisyenId) {
+async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd, akademisyenId, resim) {
   const y = S.yukleme = { dosya, asama: "Hazırlanıyor", yuzde: 0, gecen: 0, xhr: null, iptal: false };
   ciz();
   const guncelle = () => {
@@ -576,6 +618,7 @@ async function yuklemeBaslat(dosya, modelAdi, dersKodu, yukleyenAd, akademisyenI
     });
     y.asama = "Doğrulanıyor"; y.gecen = dosya.size; y.yuzde = 99; guncelle();
     await api(`/yuklemeler/${a.id}/bitti`, { yontem: "POST" });
+    if (resim) await resimGonder(a.id, resim).catch(() => {});   // resim gitmezse yükleme yine tamamdır
     S.yukleme = null;
     S.bildirim = { tur: "ok", kalin: "Gönderildi.", yazi: "Onaylanınca LBE AddPlay'de görünür." };
     if (location.hash === "#yuklemelerim") ciz(); else location.hash = "#yuklemelerim";
@@ -593,12 +636,12 @@ async function yuklemelerimSayfasi(sayfa) {
   kabuk(sayfa, ust + '<p class="yardim">Yükleniyor…</p>');
   let liste;
   try { liste = (await api("/yuklemeler")).yuklemeler; } catch (x) { return bitir(ust + hataKutusu(x)); }
-  bitir(ust + (liste.length ? `<div class="kutu dar" style="gap:0">${liste.map((m) => `<div class="yukleme">
+  bitir(ust + (liste.length ? `<div class="kutu dar" style="gap:0">${liste.map((m) => `<div class="yukleme"><div class="yk-govde">
       <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.asama)}</div>
       <span class="yardim sayisal">${[m.yukleyen_ad, m.akademisyen_ad && "Akademisyen: " + m.akademisyen_ad, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
       ${m.durum === "reddedildi" && m.ret_notu ? `<div class="ek-not"><b>Ret notu:</b> ${esc(m.ret_notu)}</div>` : ""}
       <div class="dugmeler">${onIzleDugmesi(m)}</div>
-    </div>`).join("")}</div>` : '<div class="kutu dar"><p class="yardim">Henüz yüklediğin model yok.</p></div>'));
+    </div>${resimKutusu(m)}</div>`).join("")}</div>` : '<div class="kutu dar"><p class="yardim">Henüz yüklediğin model yok.</p></div>'));
   function bitir(html) { if (simdikiSayfa().id !== sayfa.id) return; const ic = document.getElementById("icerik"); ic.innerHTML = html; onIzleBagla(ic); }
 }
 
@@ -669,7 +712,7 @@ async function onaySayfasi(sayfa) {
     if (m.asama === "akademisyen" || (m.asama === "sorumlu" && !hoca)) d.push(`<button type="button" class="btn btn-kucuk btn-red" data-ret="${m.id}">Reddet</button>`);
     if (m.asama === "onaylandi" && !hoca) d.push(`<button type="button" class="btn btn-kucuk" data-is="indir" data-id="${m.id}"${m.indirme.istendi || !m.indirme.tarih ? " disabled" : ""}>Sunucuya indir</button>`);
     const indirme = m.asama !== "onaylandi" ? "" : m.indirme.istendi || !m.indirme.tarih ? "Lab bilgisayarına indirilmeyi bekliyor" : "Lab bilgisayarına indirildi: " + tarihYaz(m.indirme.tarih);
-    return `<div class="yukleme">
+    return `<div class="yukleme"><div class="yk-govde">
       <div class="ust"><b>${esc(m.model_adi)}</b>${yuklemeRozeti(m.asama)}</div>
       <span class="yardim sayisal">${[m.yukleyen_ad, m.ogrenci_no, m.ders_kodu, tarihYaz(m.tarih), boyutYaz(m.ozgun.boyut || m.hafif.boyut)].filter(Boolean).map(esc).join(" · ")}</span>
       ${m.akademisyen ? `<span class="yardim">Akademisyen: ${esc(m.akademisyen.ad)}${m.on_onay ? ` · ön onay ${esc(tarihYaz(m.on_onay.tarih))}${m.on_onay.hoca_adina ? " (hoca adına)" : ""}` : ""}</span>` : '<span class="yardim">Akademisyen seçilmedi</span>'}
@@ -677,7 +720,7 @@ async function onaySayfasi(sayfa) {
       ${m.asama === "reddedildi" && m.ret_notu ? `<div class="ek-not"><b>Ret notu:</b> ${esc(m.ret_notu)}</div>` : ""}
       ${d.length ? `<div class="dugmeler">${d.join("")}</div>` : ""}
       <form class="ret-form" data-ret-form="${m.id}" hidden novalidate><label class="alan">Ret notu<input class="girdi" name="not" maxlength="500" placeholder="Yükleyen bu notu görür"></label><div class="dugmeler"><button class="btn btn-kucuk btn-red">Reddet</button><button type="button" class="btn btn-kucuk" data-ret-vazgec="${m.id}">Vazgeç</button></div></form>
-    </div>`;
+    </div>${resimKutusu(m)}</div>`;
   };
   const bolum = (ad, satirlar, bos) => `<h2 class="bolum-baslik">${esc(ad)} <span class="yardim sayisal">${satirlar.length}</span></h2><div class="kutu" style="gap:0">${satirlar.length ? satirlar.map(kart).join("") : `<p class="yardim">${esc(bos)}</p>`}</div>`;
   const sec = (a) => liste.filter((m) => m.asama === a);

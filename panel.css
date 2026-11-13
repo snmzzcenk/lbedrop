@@ -64,10 +64,16 @@ form{display:grid;gap:var(--s-4);margin:0}
 .ilerleme-ust{display:flex;justify-content:space-between;gap:8px;font:600 14px/1.2 var(--font)}
 
 /* Yüklemelerim */
-.yukleme{display:grid;gap:8px;padding:var(--s-4) 0;border-bottom:1px solid var(--line)}
+.yukleme{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-4);align-items:start;padding:var(--s-4) 0;border-bottom:1px solid var(--line)}
+.yk-govde{display:grid;gap:8px;min-width:0}
+.yk-govde .ust>*{min-width:0;max-width:100%;white-space:normal}
+.yk-resim{width:132px;height:99px;padding:0;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);color:var(--muted);font:600 11px/1 var(--font);display:grid;place-items:center;overflow:hidden;cursor:pointer}
+.yk-resim:hover{border-color:var(--line-strong)}
+.yk-resim img{width:100%;height:100%;object-fit:contain;display:block}
+@media (max-width:700px){.yukleme{gap:var(--s-3)}.yk-resim{width:92px;height:69px}}
 .yukleme:first-child{padding-top:0}
 .yukleme:last-child{border-bottom:0;padding-bottom:0}
-.yukleme .ust{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.yukleme .ust{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;align-items:flex-start}
 .yukleme b{font:700 15px/1.25 var(--font);overflow-wrap:anywhere}
 .yukleme .dugmeler{margin-top:4px}
 .ret-form{margin-top:8px;gap:var(--s-2)}
